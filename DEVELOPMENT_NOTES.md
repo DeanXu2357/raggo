@@ -20,8 +20,6 @@
 初期階段會先實作基本 RAG 檢索器和評估工具，之後使用 Contextual Retriveval 的技術來優化檢索器。
 再來實作 MCP 檢索器，最後根據效能來優化，例如為新增檔案功能新增 Queue 排隊、檢視索引進度和使用框架（genkit or langchainGo）重構專案。
 
-實作過程會使用 Cline、Github Copilot 和 Claude 來加速開發，展示 AI 工具在開發上的實際使用，讓人看到實際 AI 協助開發並不完全像是 Youtube 影片上那樣的完美。
-
 ## 規格
 專案使用 Go 語言，並且透過 Docker compose 管理依賴服務。
 預計使用 

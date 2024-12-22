@@ -1,0 +1,43 @@
+services:
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.2
+    ports:
+        - "8088:8080"
+        - "50051:50051"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      ENABLE_API_BASED_MODULES: 'true'
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - ./weaviate_data:/var/lib/weaviate
+    restart: on-failure
+
+#  raggo:
+#    build:
+#      context: .  # 使用專案根目錄作為 context
+#      dockerfile: Dockerfile
+#    ports:
+#      - "6211:6211"  # 只映射 raggo 的 gRPC 端口
+#    depends_on:
+#      - weaviate
+#      - elasticsearch
+##      - ollama
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - ./elasticsearch_data:/usr/share/elasticsearch/data
+
+#  ollama:
+#    image: ollama/ollama:latest
+#    volumes:
+#      - ./ollama_data:/root/.ollama

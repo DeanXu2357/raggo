@@ -1,3 +1,5 @@
 vendor/
 .env.example
 .idea/
+weaviate_data
+elasticsearch_data
