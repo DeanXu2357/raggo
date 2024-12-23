@@ -33,7 +33,7 @@
 完成簡單 RAG 實現，在 evaluate command 中可以載入檔案和檢索檔案。  
 這個版本只是簡單把載入的資料列透過 ollama 用 `nomic-embed-text` embedding 後存到 Weaviate 中，然後透過 Weaviate 的檢索功能來檢索。 
 
-```sh
+```
 $ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 5
 Created schema: CodeChunk_1734936252
 Successfully imported 737 code chunks to CodeChunk_1734936252
@@ -75,5 +75,59 @@ Total queries: 248
 
 不確定影響分數的原因，可能是因為使用的 embedding 模型不同，或是檢索的方式不同。
 
+
+### Git commit `f45fa034771516b407dc2534bcdbb2d055871460`
+
+加入上下文資料與分塊一同 embedding 。
+上下文統整使用 llama3.2:3b 模型，分塊統整使用 nomic-embed-text 模型。
+
+```bash
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 5 -c true
+Starting evaluation with:
+- Input file: ./data/codebase_chunks.json
+- Evaluation file: ./data/evaluation_set.jsonl
+- k: 5
+- Using contextual information: true
+- LLM model: llama3.2:3b
+Created schema: CodeChunk_1734940640
+Importing chunks 100% [========================================] (737/737)
+Successfully imported 737 code chunks to CodeChunk_1734940640
+Evaluating queries 100% [========================================] (248/248)        
+Evaluation Results (k=5):
+Total evaluations: 248
+Average score: 75.15%
+Successfully deleted class CodeChunk_1734940640
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 10 -c true
+Starting evaluation with:
+- Input file: ./data/codebase_chunks.json
+- Evaluation file: ./data/evaluation_set.jsonl
+- k: 10
+- Using contextual information: true
+- LLM model: llama3.2:3b
+Created schema: CodeChunk_1734941032
+Importing chunks 100% [========================================] (737/737)Successfully imported 737 code chunks to CodeChunk_1734941032
+Evaluating queries 100% [========================================] (248/248)        
+Evaluation Results (k=10):
+Total evaluations: 248
+Average score: 81.52%
+Successfully deleted class CodeChunk_1734941032
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 20 -c true
+Starting evaluation with:
+- Input file: ./data/codebase_chunks.json
+- Evaluation file: ./data/evaluation_set.jsonl
+- k: 20
+- Using contextual information: true
+- LLM model: llama3.2:3b
+Created schema: CodeChunk_1734941309
+Importing chunks 100% [========================================] (737/737)
+Successfully imported 737 code chunks to CodeChunk_1734941309
+Evaluating queries 100% [========================================] (248/248)        
+Evaluation Results (k=20):
+Total evaluations: 248
+Average score: 86.96%
+Successfully deleted class CodeChunk_1734941309
+```
+
+可以看到分數有明顯的提升，但是還是沒有 Anthropic 文章的分數高。
 
 
