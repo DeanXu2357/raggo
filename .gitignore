@@ -1,5 +1,9 @@
 vendor/
 .env.example
 .idea/
-#weaviate_data
-#elasticsearch_data
+
+weaviate_data/
+!weaviate_data/.gitkeep
+elasticsearch_data/
+!elasticsearch_data/.gitkeep
+
