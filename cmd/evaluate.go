@@ -8,7 +8,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
+	"time"
+
+	"github.com/ollama/ollama/api"
 
 	"github.com/spf13/cobra"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate"
@@ -41,6 +46,9 @@ func Evaluate(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 	inputPath, _ := cmd.Flags().GetString("input")
 	evaluatePath, _ := cmd.Flags().GetString("evaluate")
+
+	// Generate class name with timestamp
+	className := fmt.Sprintf("CodeChunk_%d", time.Now().Unix())
 
 	// weaviate connection
 	cfg := weaviate.Config{
@@ -76,7 +84,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 
 	classExists := false
 	for _, class := range schema.Classes {
-		if class.Class == "CodeChunk" {
+		if class.Class == className {
 			classExists = true
 			break
 		}
@@ -85,7 +93,8 @@ func Evaluate(cmd *cobra.Command, args []string) {
 	if !classExists {
 		// Create Weaviate schema if not exists
 		classObj := &models.Class{
-			Class: "CodeChunk",
+			Class:      className,
+			Vectorizer: "none", // We'll use custom vectors
 			Properties: []*models.Property{
 				{
 					Name:     "docId",
@@ -116,7 +125,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 			fmt.Printf("Failed to create schema: %v\n", err)
 			return
 		}
-		fmt.Println("Created CodeChunk schema")
+		fmt.Printf("Created schema: %s\n", className)
 	}
 
 	// Import data to Weaviate
@@ -134,9 +143,17 @@ func Evaluate(cmd *cobra.Command, args []string) {
 				"chunkContent": chunk.Content,
 			}
 
+			// Get embedding for the chunk content
+			embedding, err := getEmbedding(chunk.Content)
+			if err != nil {
+				fmt.Printf("Failed to get embedding for chunk %s: %v\n", chunk.ID, err)
+				continue
+			}
+
 			obj := &models.Object{
-				Class:      "CodeChunk",
+				Class:      className,
 				Properties: properties,
+				Vector:     embedding,
 			}
 
 			objs = append(objs, obj)
@@ -150,7 +167,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	fmt.Printf("Successfully imported %d code chunks to Weaviate\n", len(resp))
+	fmt.Printf("Successfully imported %d code chunks to %s\n", len(resp), className)
 
 	// Open evaluation file
 	evalFile, err := os.Open(evaluatePath)
@@ -177,7 +194,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		}
 
 		// Call RetrievalFunction with query
-		retrievedChunks, err := RetrievalFunction(ctx, client, evalRaw.Query, 5)
+		retrievedChunks, err := RetrievalFunction(ctx, client, evalRaw.Query, 10, className)
 		if err != nil {
 			fmt.Printf("Failed to retrieve chunks for query: %v\n", err)
 			continue
@@ -217,13 +234,13 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		fmt.Println("No evaluations were processed")
 	}
 
-	// Cleanup: Delete all data from Weaviate
-	err = client.Schema().ClassDeleter().WithClassName("CodeChunk").Do(ctx)
+	// Then delete the class
+	err = client.Schema().ClassDeleter().WithClassName(className).Do(ctx)
 	if err != nil {
 		fmt.Printf("Failed to cleanup Weaviate data: %v\n", err)
 		return
 	}
-	fmt.Println("Successfully cleaned up Weaviate data")
+	fmt.Printf("Successfully deleted class %s\n", className)
 }
 
 type CodeBaseRaw struct {
@@ -276,8 +293,47 @@ func (e *ChunkRef) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func RetrievalFunction(ctx context.Context, client *weaviate.Client, query string, k int) ([]RetrievalChunk, error) {
-	// Perform semantic search using nearText operator
+var ollamaClient *api.Client
+
+func init() {
+	baseURL, err := url.Parse("http://localhost:11434")
+	if err != nil {
+		fmt.Printf("Failed to parse Ollama URL: %v\n", err)
+		os.Exit(1)
+	}
+	ollamaClient = api.NewClient(baseURL, http.DefaultClient)
+}
+
+func getEmbedding(text string) ([]float32, error) {
+	// Create embeddings request
+	req := api.EmbeddingRequest{
+		Model:  "nomic-embed-text",
+		Prompt: text,
+	}
+
+	// Call Ollama API using the client
+	resp, err := ollamaClient.Embeddings(context.Background(), &req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get embedding: %v", err)
+	}
+
+	// Convert float64 to float32
+	embedding32 := make([]float32, len(resp.Embedding))
+	for i, v := range resp.Embedding {
+		embedding32[i] = float32(v)
+	}
+
+	return embedding32, nil
+}
+
+func RetrievalFunction(ctx context.Context, client *weaviate.Client, query string, k int, className string) ([]RetrievalChunk, error) {
+	// Get embedding for query
+	queryEmbedding, err := getEmbedding(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get query embedding: %v", err)
+	}
+
+	// Perform semantic search using vector
 	fields := []graphql.Field{
 		{Name: "docUUID"},
 		{Name: "chunkId"},
@@ -286,10 +342,10 @@ func RetrievalFunction(ctx context.Context, client *weaviate.Client, query strin
 	}
 
 	result, err := client.GraphQL().Get().
-		WithClassName("CodeChunk").
+		WithClassName(className).
 		WithFields(fields...).
-		WithNearText(client.GraphQL().NearTextArgBuilder().
-			WithConcepts([]string{query})).
+		WithNearVector(client.GraphQL().NearVectorArgBuilder().
+			WithVector(queryEmbedding)).
 		WithLimit(k).
 		Do(ctx)
 
@@ -304,7 +360,7 @@ func RetrievalFunction(ctx context.Context, client *weaviate.Client, query strin
 	}
 
 	// Get the results from the GraphQL response
-	if getCodeChunk, ok := result.Data["Get"].(map[string]interface{})["CodeChunk"].([]interface{}); ok {
+	if getCodeChunk, ok := result.Data["Get"].(map[string]interface{})[className].([]interface{}); ok {
 		for _, item := range getCodeChunk {
 			if chunk, ok := item.(map[string]interface{}); ok {
 				// Parse docIndex
