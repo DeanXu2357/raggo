@@ -11,7 +11,7 @@ services:
       ENABLE_API_BASED_MODULES: 'true'
       CLUSTER_HOSTNAME: 'node1'
     volumes:
-      - ./weaviate_data:/var/lib/weaviate
+      - weaviate_data:/var/lib/weaviate
     restart: on-failure
 
 #  raggo:
@@ -35,9 +35,13 @@ services:
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     volumes:
-      - ./elasticsearch_data:/usr/share/elasticsearch/data
+      - elasticsearch_data:/usr/share/elasticsearch/data
 
 #  ollama:
 #    image: ollama/ollama:latest
 #    volumes:
 #      - ./ollama_data:/root/.ollama
+
+volumes:
+    weaviate_data:
+    elasticsearch_data:
