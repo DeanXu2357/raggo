@@ -170,7 +170,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	fmt.Printf("Successfully imported %d code chunks to %s\n", len(resp), className)
+	fmt.Printf("\nSuccessfully imported %d code chunks to %s\n", len(resp), className)
 
 	// Open evaluation file
 	evalFile, err := os.Open(evaluatePath)
@@ -180,8 +180,11 @@ func Evaluate(cmd *cobra.Command, args []string) {
 	}
 	defer evalFile.Close()
 
+	const maxCapacity = 4 * 1024 * 1024 // 4MB
+
 	// Count total evaluations
 	evalScanner := bufio.NewScanner(evalFile)
+	evalScanner.Buffer(make([]byte, maxCapacity), maxCapacity)
 	var totalEvals int
 	for evalScanner.Scan() {
 		totalEvals++
@@ -203,7 +206,6 @@ func Evaluate(cmd *cobra.Command, args []string) {
 
 	// Read evaluation file line by line
 	scanner := bufio.NewScanner(evalFile)
-	const maxCapacity = 4 * 1024 * 1024 // 1MB
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 	var totalScore float64
