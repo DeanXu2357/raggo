@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ollama/ollama/api"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
@@ -41,6 +43,8 @@ func init() {
 	evaluateCmd.Flags().StringP("evaluate", "e", "", "Evaluation JSON file path")
 	evaluateCmd.MarkFlagRequired("evaluate")
 	evaluateCmd.Flags().IntP("k", "k", 5, "Number of results to retrieve (default: 5)")
+	evaluateCmd.Flags().BoolP("contextual", "c", false, "Add contextual information before storing in database")
+	evaluateCmd.Flags().StringP("model", "m", "llama3.2:3b", "LLM model to use for generating context")
 }
 
 func Evaluate(cmd *cobra.Command, args []string) {
@@ -48,6 +52,15 @@ func Evaluate(cmd *cobra.Command, args []string) {
 	inputPath, _ := cmd.Flags().GetString("input")
 	evaluatePath, _ := cmd.Flags().GetString("evaluate")
 	k, _ := cmd.Flags().GetInt("k")
+	useContextual, _ := cmd.Flags().GetBool("contextual")
+	model, _ := cmd.Flags().GetString("model")
+
+	fmt.Printf("Starting evaluation with:\n")
+	fmt.Printf("- Input file: %s\n", inputPath)
+	fmt.Printf("- Evaluation file: %s\n", evaluatePath)
+	fmt.Printf("- k: %d\n", k)
+	fmt.Printf("- Using contextual information: %v\n", useContextual)
+	fmt.Printf("- LLM model: %s\n", model)
 
 	// Generate class name with timestamp
 	className := fmt.Sprintf("CodeChunk_%d", time.Now().Unix())
@@ -83,13 +96,40 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	defer func() {
+		// Then delete the class
+		err = client.Schema().ClassDeleter().WithClassName(className).Do(ctx)
+		if err != nil {
+			fmt.Printf("Failed to cleanup Weaviate data: %v\n", err)
+			return
+		}
+	}()
+
+	// Calculate total chunks
+	var totalChunks int
+	for _, codebase := range codebaseRaws {
+		totalChunks += len(codebase.Chunks)
+	}
+
+	// Create progress bar for importing
+	importBar := progressbar.NewOptions(totalChunks,
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetDescription("[cyan]Importing chunks[reset]"),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
+
 	// Import data to Weaviate
 	batcher := client.Batch().ObjectsBatcher()
-	var totalChunks int
-
-	objs := make([]*models.Object, 0)
+	objs := make([]*models.Object, 0, totalChunks)
 	for _, codebase := range codebaseRaws {
 		for _, chunk := range codebase.Chunks {
+			importBar.Add(1)
 			properties := map[string]interface{}{
 				"docId":        codebase.ID,
 				"docUUID":      codebase.UUIDHash,
@@ -98,10 +138,19 @@ func Evaluate(cmd *cobra.Command, args []string) {
 				"chunkContent": chunk.Content,
 			}
 
+			content := chunk.Content
+			if useContextual {
+				// Add contextual information
+				context := situateContext(ctx, codebase.Content, chunk.Content, model)
+				if context != "" {
+					content = fmt.Sprintf("%s\n%s", context, content)
+				}
+			}
+
 			// Get embedding for the chunk content
-			embedding, err := getEmbedding(chunk.Content)
+			embedding, err := getEmbedding(content)
 			if err != nil {
-				fmt.Printf("Failed to get embedding for chunk %s: %v\n", chunk.ID, err)
+				fmt.Printf("\nFailed to get embedding for chunk %s: %v\n", chunk.ID, err)
 				continue
 			}
 
@@ -112,7 +161,6 @@ func Evaluate(cmd *cobra.Command, args []string) {
 			}
 
 			objs = append(objs, obj)
-			totalChunks++
 		}
 	}
 
@@ -132,15 +180,37 @@ func Evaluate(cmd *cobra.Command, args []string) {
 	}
 	defer evalFile.Close()
 
+	// Count total evaluations
+	evalScanner := bufio.NewScanner(evalFile)
+	var totalEvals int
+	for evalScanner.Scan() {
+		totalEvals++
+	}
+	evalFile.Seek(0, 0) // Reset file pointer to beginning
+
+	// Create progress bar for evaluation
+	evalBar := progressbar.NewOptions(totalEvals,
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetDescription("[cyan]Evaluating queries[reset]"),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
+
 	// Read evaluation file line by line
 	scanner := bufio.NewScanner(evalFile)
 	const maxCapacity = 4 * 1024 * 1024 // 1MB
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 	var totalScore float64
-	var totalEvals int
+	var processedEvals int
 
 	for scanner.Scan() {
+		evalBar.Add(1)
 		var evalRaw EvaluateRaw
 		err := json.Unmarshal(scanner.Bytes(), &evalRaw)
 		if err != nil {
@@ -172,7 +242,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 
 		score := float64(matchCount) / float64(len(evalRaw.GoldenChunkUUIDs))
 		totalScore += score
-		totalEvals++
+		processedEvals++
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -180,20 +250,13 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if totalEvals > 0 {
-		averageScore := (totalScore / float64(totalEvals)) * 100
-		fmt.Printf("Evaluation Results (k=%d):\n", k)
-		fmt.Printf("Total evaluations: %d\n", totalEvals)
+	if processedEvals > 0 {
+		averageScore := (totalScore / float64(processedEvals)) * 100
+		fmt.Printf("\nEvaluation Results (k=%d):\n", k)
+		fmt.Printf("Total evaluations: %d\n", processedEvals)
 		fmt.Printf("Average score: %.2f%%\n", averageScore)
 	} else {
 		fmt.Println("No evaluations were processed")
-	}
-
-	// Then delete the class
-	err = client.Schema().ClassDeleter().WithClassName(className).Do(ctx)
-	if err != nil {
-		fmt.Printf("Failed to cleanup Weaviate data: %v\n", err)
-		return
 	}
 
 	fmt.Printf("Successfully deleted class %s\n", className)
@@ -395,4 +458,54 @@ type RetrievalChunk struct {
 	Index   int64
 	ChunkID string
 	Content string
+}
+
+const (
+	DOCUMENT_CONTEXT_PROMPT = `
+<document>
+{doc_content}
+</document>
+`
+	CHUNK_CONTEXT_PROMPT = `
+Here is the chunk we want to situate within the whole document
+<chunk>
+{chunk_content}
+</chunk>
+
+Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk.
+Answer only with the succinct context and nothing else.
+`
+)
+
+func situateContext(ctx context.Context, doc, chunk string, generator string) string {
+	if generator == "" {
+		generator = "llama3.2:3b"
+	}
+
+	// Replace template placeholders
+	docPrompt := strings.Replace(DOCUMENT_CONTEXT_PROMPT, "{doc_content}", doc, 1)
+	chunkPrompt := strings.Replace(CHUNK_CONTEXT_PROMPT, "{chunk_content}", chunk, 1)
+
+	// Combine prompts
+	prompt := docPrompt + "\n" + chunkPrompt
+
+	// Create generate request
+	req := api.GenerateRequest{
+		Model:  generator,
+		Prompt: prompt,
+	}
+
+	var response string
+	// Call Ollama API
+	err := ollamaClient.Generate(ctx, &req, func(resp api.GenerateResponse) error {
+		response += resp.Response
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("Failed to generate context: %v\n", err)
+		return ""
+	}
+
+	return response
 }
