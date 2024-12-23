@@ -78,56 +78,9 @@ func Evaluate(cmd *cobra.Command, args []string) {
 	}
 
 	// Check if CodeChunk class exists
-	schema, err := client.Schema().Getter().Do(ctx)
-	if err != nil {
-		fmt.Printf("Failed to get schema: %v\n", err)
+	if err := createWeaviateCollection(ctx, client, className); err != nil {
+		fmt.Println(err)
 		return
-	}
-
-	classExists := false
-	for _, class := range schema.Classes {
-		if class.Class == className {
-			classExists = true
-			break
-		}
-	}
-
-	if !classExists {
-		// Create Weaviate schema if not exists
-		classObj := &models.Class{
-			Class:      className,
-			Vectorizer: "none", // We'll use custom vectors
-			Properties: []*models.Property{
-				{
-					Name:     "docId",
-					DataType: []string{"string"},
-				},
-				{
-					Name:     "docUUID",
-					DataType: []string{"string"},
-				},
-				{
-					Name:     "chunkId",
-					DataType: []string{"string"},
-				},
-				{
-					Name:     "docIndex",
-					DataType: []string{"number"},
-				},
-				{
-					Name:     "chunkContent",
-					DataType: []string{"text"},
-				},
-			},
-		}
-
-		// Create schema
-		err = client.Schema().ClassCreator().WithClass(classObj).Do(ctx)
-		if err != nil {
-			fmt.Printf("Failed to create schema: %v\n", err)
-			return
-		}
-		fmt.Printf("Created schema: %s\n", className)
 	}
 
 	// Import data to Weaviate
@@ -242,7 +195,62 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		fmt.Printf("Failed to cleanup Weaviate data: %v\n", err)
 		return
 	}
+
 	fmt.Printf("Successfully deleted class %s\n", className)
+}
+
+func createWeaviateCollection(ctx context.Context, client *weaviate.Client, className string) error {
+	schema, err := client.Schema().Getter().Do(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get schema: %v\n", err)
+	}
+
+	classExists := false
+	for _, class := range schema.Classes {
+		if class.Class == className {
+			classExists = true
+			break
+		}
+	}
+
+	if !classExists {
+		// Create Weaviate schema if not exists
+		classObj := &models.Class{
+			Class:      className,
+			Vectorizer: "none", // We'll use custom vectors
+			Properties: []*models.Property{
+				{
+					Name:     "docId",
+					DataType: []string{"string"},
+				},
+				{
+					Name:     "docUUID",
+					DataType: []string{"string"},
+				},
+				{
+					Name:     "chunkId",
+					DataType: []string{"string"},
+				},
+				{
+					Name:     "docIndex",
+					DataType: []string{"number"},
+				},
+				{
+					Name:     "chunkContent",
+					DataType: []string{"text"},
+				},
+			},
+		}
+
+		// Create schema
+		err = client.Schema().ClassCreator().WithClass(classObj).Do(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create schema: %v\n", err)
+		}
+		fmt.Printf("Created schema: %s\n", className)
+	}
+
+	return nil
 }
 
 type CodeBaseRaw struct {

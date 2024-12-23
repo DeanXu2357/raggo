@@ -29,6 +29,51 @@
 
 
 ## Log
-### 598566c5b1ef3d640d87634278256547be93f5ff
-完成簡單 RAG 實現，在 evaluate command 中可以載入檔案和檢索檔案。
+### Git commit `177dabe83ecc5bf617a302964c3b52aa56ce0958`
+完成簡單 RAG 實現，在 evaluate command 中可以載入檔案和檢索檔案。  
 這個版本只是簡單把載入的資料列透過 ollama 用 `nomic-embed-text` embedding 後存到 Weaviate 中，然後透過 Weaviate 的檢索功能來檢索。 
+
+```sh
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 5
+Created schema: CodeChunk_1734936252
+Successfully imported 737 code chunks to CodeChunk_1734936252
+Evaluation Results (k=5):
+Total evaluations: 248
+Average score: 68.69%
+Successfully deleted class CodeChunk_1734936252
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 10
+Created schema: CodeChunk_1734936262
+Successfully imported 737 code chunks to CodeChunk_1734936262
+Evaluation Results (k=10):
+Total evaluations: 248
+Average score: 75.81%
+Successfully deleted class CodeChunk_1734936262
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 20
+Created schema: CodeChunk_1734936271
+Successfully imported 737 code chunks to CodeChunk_1734936271
+Evaluation Results (k=20):
+Total evaluations: 248
+Average score: 79.67%
+Successfully deleted class CodeChunk_1734936271
+```
+
+可以看到分數對比 Anthropic 文章取得的分數有很大的差距。
+```
+Evaluating retrieval: 100%|██████████| 248/248 [00:06<00:00, 40.70it/s]
+Pass@5: 80.92%
+Total Score: 0.8091877880184332
+Total queries: 248
+Evaluating retrieval: 100%|██████████| 248/248 [00:06<00:00, 39.50it/s]
+Pass@10: 87.15%
+Total Score: 0.8714957757296468
+Total queries: 248
+Evaluating retrieval: 100%|██████████| 248/248 [00:06<00:00, 39.43it/s]
+Pass@20: 90.06%
+Total Score: 0.9006336405529954
+Total queries: 248
+```
+
+不確定影響分數的原因，可能是因為使用的 embedding 模型不同，或是檢索的方式不同。
+
+
+
