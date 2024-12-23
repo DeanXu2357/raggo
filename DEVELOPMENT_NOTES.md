@@ -28,3 +28,7 @@
 - [Elasticsearch]() 負責提供檔案索引
 
 
+## Log
+### 598566c5b1ef3d640d87634278256547be93f5ff
+完成簡單 RAG 實現，在 evaluate command 中可以載入檔案和檢索檔案。
+這個版本只是簡單把載入的資料列透過 ollama 用 `nomic-embed-text` embedding 後存到 Weaviate 中，然後透過 Weaviate 的檢索功能來檢索。 
