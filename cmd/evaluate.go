@@ -40,12 +40,14 @@ func init() {
 	evaluateCmd.MarkFlagRequired("input")
 	evaluateCmd.Flags().StringP("evaluate", "e", "", "Evaluation JSON file path")
 	evaluateCmd.MarkFlagRequired("evaluate")
+	evaluateCmd.Flags().IntP("k", "k", 5, "Number of results to retrieve (default: 5)")
 }
 
 func Evaluate(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 	inputPath, _ := cmd.Flags().GetString("input")
 	evaluatePath, _ := cmd.Flags().GetString("evaluate")
+	k, _ := cmd.Flags().GetInt("k")
 
 	// Generate class name with timestamp
 	className := fmt.Sprintf("CodeChunk_%d", time.Now().Unix())
@@ -194,7 +196,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		}
 
 		// Call RetrievalFunction with query
-		retrievedChunks, err := RetrievalFunction(ctx, client, evalRaw.Query, 10, className)
+		retrievedChunks, err := RetrievalFunction(ctx, client, evalRaw.Query, k, className)
 		if err != nil {
 			fmt.Printf("Failed to retrieve chunks for query: %v\n", err)
 			continue
@@ -227,7 +229,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 
 	if totalEvals > 0 {
 		averageScore := (totalScore / float64(totalEvals)) * 100
-		fmt.Printf("Evaluation Results:\n")
+		fmt.Printf("Evaluation Results (k=%d):\n", k)
 		fmt.Printf("Total evaluations: %d\n", totalEvals)
 		fmt.Printf("Average score: %.2f%%\n", averageScore)
 	} else {
