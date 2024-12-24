@@ -271,6 +271,9 @@ func Evaluate(cmd *cobra.Command, args []string) {
 	scanner.Buffer(buf, maxCapacity)
 	var totalScore float64
 	var processedEvals int
+	var totalSemanticCount float64
+	var totalElasticCount float64
+	var totalResult int
 
 	for scanner.Scan() {
 		evalBar.Add(1)
@@ -282,7 +285,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		}
 
 		// Call RetrievalFunction with query
-		retrievedChunks, err := RetrievalFunction(ctx, client, evalRaw.Query, k, className, useBM25, indexName)
+		retrievedChunks, semanticCount, elasticCount, err := RetrievalFunction(ctx, client, evalRaw.Query, k, className, useBM25, indexName)
 		if err != nil {
 			fmt.Printf("Failed to retrieve chunks for query: %v\n", err)
 			continue
@@ -305,7 +308,10 @@ func Evaluate(cmd *cobra.Command, args []string) {
 
 		score := float64(matchCount) / float64(len(evalRaw.GoldenChunkUUIDs))
 		totalScore += score
+		totalSemanticCount += semanticCount
+		totalElasticCount += elasticCount
 		processedEvals++
+		totalResult += len(retrievedChunks)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -318,6 +324,10 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		fmt.Printf("\nEvaluation Results (k=%d):\n", k)
 		fmt.Printf("Total evaluations: %d\n", processedEvals)
 		fmt.Printf("Average score: %.2f%%\n", averageScore)
+		if useBM25 {
+			fmt.Printf("Percentage of results from Weaviate: %.2f%%\n", (totalSemanticCount/float64(totalResult))*100)
+			fmt.Printf("Percentage of results from Elasticsearch: %.2f%%\n", (totalElasticCount/float64(totalResult))*100)
+		}
 	} else {
 		fmt.Println("No evaluations were processed")
 	}
@@ -458,11 +468,13 @@ func init() {
 }
 
 type ChunkScore struct {
-	DocUUID       string
-	Index         int64
-	ChunkID       string
-	Content       string
-	WeightedScore float64
+	DocUUID        string
+	Index          int64
+	ChunkID        string
+	Content        string
+	WeightedScore  float64
+	IsFromWeaviate bool
+	IsFromElastic  bool
 }
 
 func indexToElasticsearch(ctx context.Context, indexName string, docs []ChunkProperties) error {
@@ -645,6 +657,7 @@ func searchElasticsearch(ctx context.Context, query string, k int, indexName str
 			ChunkID:       props.ChunkID,
 			Content:       props.ChunkContent,
 			WeightedScore: ELASTIC_WEIGHT * (1.0 / float64(i+1)),
+			IsFromElastic: true,
 		}
 		chunks = append(chunks, chunk)
 	}
@@ -694,11 +707,12 @@ func searchWeaviate(ctx context.Context, client *weaviate.Client, query string, 
 				docIndex, _ := chunk["docIndex"].(float64)
 
 				chunkScore := ChunkScore{
-					DocUUID:       chunk["docUUID"].(string),
-					Index:         int64(docIndex),
-					ChunkID:       chunk["chunkId"].(string),
-					Content:       chunk["chunkContent"].(string),
-					WeightedScore: WEAVIATE_WEIGHT * (1.0 / float64(i+1)),
+					DocUUID:        chunk["docUUID"].(string),
+					Index:          int64(docIndex),
+					ChunkID:        chunk["chunkId"].(string),
+					Content:        chunk["chunkContent"].(string),
+					WeightedScore:  WEAVIATE_WEIGHT * (1.0 / float64(i+1)),
+					IsFromWeaviate: true,
 				}
 				chunks = append(chunks, chunkScore)
 			}
@@ -713,17 +727,20 @@ func mergeResults(weaviateResults, elasticResults []ChunkScore) []ChunkScore {
 	chunkScores := make(map[string]ChunkScore)
 
 	// Process Weaviate results
-	for _, chunk := range weaviateResults {
+	for i, chunk := range weaviateResults {
+		chunk.WeightedScore = WEAVIATE_WEIGHT * (1.0 / float64(i+1))
 		chunkScores[chunk.ChunkID] = chunk
 	}
 
 	// Process Elasticsearch results
-	for _, chunk := range elasticResults {
+	for i, chunk := range elasticResults {
 		if existing, ok := chunkScores[chunk.ChunkID]; ok {
 			// If chunk exists, add scores
-			existing.WeightedScore += chunk.WeightedScore
+			existing.WeightedScore += ELASTIC_WEIGHT * (1.0 / float64(i+1))
+			existing.IsFromElastic = true
 			chunkScores[chunk.ChunkID] = existing
 		} else {
+			chunk.WeightedScore = ELASTIC_WEIGHT * (1.0 / float64(i+1))
 			chunkScores[chunk.ChunkID] = chunk
 		}
 	}
@@ -742,11 +759,11 @@ func mergeResults(weaviateResults, elasticResults []ChunkScore) []ChunkScore {
 	return merged
 }
 
-func RetrievalFunction(ctx context.Context, client *weaviate.Client, query string, k int, className string, useBM25 bool, indexName string) ([]RetrievalChunk, error) {
+func RetrievalFunction(ctx context.Context, client *weaviate.Client, query string, k int, className string, useBM25 bool, indexName string) ([]RetrievalChunk, float64, float64, error) {
 	// Get results from Weaviate
 	weaviateResults, err := searchWeaviate(ctx, client, query, k, className)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search Weaviate: %v", err)
+		return nil, 0, 0, fmt.Errorf("failed to search Weaviate: %v", err)
 	}
 
 	var finalResults []ChunkScore
@@ -754,7 +771,7 @@ func RetrievalFunction(ctx context.Context, client *weaviate.Client, query strin
 		// Get results from Elasticsearch
 		elasticResults, err := searchElasticsearch(ctx, query, k, indexName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to search Elasticsearch: %v", err)
+			return nil, 0, 0, fmt.Errorf("failed to search Elasticsearch: %v", err)
 		}
 
 		// Merge and sort results
@@ -779,7 +796,20 @@ func RetrievalFunction(ctx context.Context, client *weaviate.Client, query strin
 		chunks = chunks[:k]
 	}
 
-	return chunks, nil
+	var totalSemanticCount float64
+	var totalElasticCount float64
+	for _, chunk := range finalResults {
+		if chunk.IsFromWeaviate && chunk.IsFromElastic {
+			totalSemanticCount += 0.5
+			totalElasticCount += 0.5
+		} else if chunk.IsFromWeaviate {
+			totalSemanticCount++
+		} else if chunk.IsFromElastic {
+			totalElasticCount++
+		}
+	}
+
+	return chunks, totalSemanticCount, totalElasticCount, nil
 }
 
 type ChunkProperties struct {
