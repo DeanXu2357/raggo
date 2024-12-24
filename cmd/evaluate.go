@@ -323,7 +323,7 @@ func Evaluate(cmd *cobra.Command, args []string) {
 		averageScore := (totalScore / float64(processedEvals)) * 100
 		fmt.Printf("\nEvaluation Results (k=%d):\n", k)
 		fmt.Printf("Total evaluations: %d\n", processedEvals)
-		fmt.Printf("Average score: %.2f%%\n", averageScore)
+		fmt.Printf("Average score: %.2f\n", averageScore)
 		if useBM25 {
 			fmt.Printf("Percentage of results from Weaviate: %.2f%%\n", (totalSemanticCount/float64(totalResult))*100)
 			fmt.Printf("Percentage of results from Elasticsearch: %.2f%%\n", (totalElasticCount/float64(totalResult))*100)

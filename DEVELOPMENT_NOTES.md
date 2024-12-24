@@ -130,4 +130,71 @@ Successfully deleted class CodeChunk_1734941309
 
 可以看到分數有明顯的提升，但是還是沒有 Anthropic 文章的分數高。
 
+### Git commit `1538cba4838d290ea4d2c93c6fd9c76dec21b117`
+```bash
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 5 -c true --bm25
+Starting evaluation with:
+- Input file: ./data/codebase_chunks.json
+- Evaluation file: ./data/evaluation_set.jsonl
+- k: 5
+- Using contextual information: true
+- LLM model: llama3.2:3b
+- Using BM25 scoring: true
+Created schema: CodeChunk_1735009800
+Importing chunks 100% [========================================] (737/737)              
+Successfully imported 737 code chunks to Weaviate
+Successfully imported 737 code chunks to Elasticsearch
+Evaluating queries 100% [========================================] (248/248)        
+Evaluation Results (k=5):
+Total evaluations: 248
+Average score: 77.42%
+Percentage of results from Weaviate: 83.39%
+Percentage of results from Elasticsearch: 83.39%
+Successfully deleted class CodeChunk_1735009800
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 10 -c true --bm25
+Starting evaluation with:
+- Input file: ./data/codebase_chunks.json
+- Evaluation file: ./data/evaluation_set.jsonl
+- k: 10
+- Using contextual information: true
+- LLM model: llama3.2:3b
+- Using BM25 scoring: true
+Created schema: CodeChunk_1735010137
+Importing chunks 100% [========================================] (737/737)              
+Successfully imported 737 code chunks to Weaviate
+Successfully imported 737 code chunks to Elasticsearch
+Evaluating queries 100% [========================================] (248/248)        
+Evaluation Results (k=10):
+Total evaluations: 248
+Average score: 84.71%
+Percentage of results from Weaviate: 86.75%
+Percentage of results from Elasticsearch: 73.00%
+Successfully deleted class CodeChunk_1735010137
+$ go run main.go evaluate -i ./data/codebase_chunks.json -e ./data/evaluation_set.jsonl -k 20 -c true --bm25
+Starting evaluation with:
+- Input file: ./data/codebase_chunks.json
+- Evaluation file: ./data/evaluation_set.jsonl
+- k: 20
+- Using contextual information: true
+- LLM model: llama3.2:3b
+- Using BM25 scoring: true
+Created schema: CodeChunk_1735010384
+Importing chunks 100% [========================================] (737/737)              
+Successfully imported 737 code chunks to Weaviate
+Successfully imported 737 code chunks to Elasticsearch
+Evaluating queries 100% [========================================] (248/248)        
+Evaluation Results (k=20):
+Total evaluations: 248
+Average score: 88.78%
+Percentage of results from Weaviate: 90.25%
+Percentage of results from Elasticsearch: 58.14%
+Successfully deleted class CodeChunk_1735010384
+```
+
+對比加上前後文  
+k=5: 75.15% -> 77.42%
+k=10: 81.52% -> 84.71%
+k=20: 86.96% -> 88.78%
+
+可以看到普遍有 2-3% 的提升
 
