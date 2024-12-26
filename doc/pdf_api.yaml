@@ -1,0 +1,299 @@
+openapi: '3.0.0'
+info:
+  title: PDF Processor API
+  version: '1.0.0'
+  description: API for PDF processing, text conversion, and translation
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /pdfs:
+    post:
+      summary: Upload a new PDF file
+      operationId: uploadPDF
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: PDF uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          description: Invalid file format
+        '500':
+          description: Server error
+
+  /resources:
+    get:
+      summary: List all available resources
+      operationId: listResources
+      responses:
+        '200':
+          description: List of all resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceList'
+        '500':
+          description: Server error
+
+  /conversion:
+    post:
+      summary: Trigger PDF to text conversion
+      operationId: convertPDF
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversionRequest'
+      responses:
+        '202':
+          description: Conversion job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          description: Invalid request
+        '404':
+          description: PDF not found
+        '500':
+          description: Server error
+
+  /translation:
+    post:
+      summary: Trigger text translation
+      operationId: translateText
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslationRequest'
+      responses:
+        '202':
+          description: Translation job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          description: Invalid request
+        '404':
+          description: Source text not found
+        '500':
+          description: Server error
+
+  /jobs/{jobId}:
+    get:
+      summary: Get job status
+      operationId: getJobStatus
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobDetail'
+        '404':
+          description: Job not found
+        '500':
+          description: Server error
+
+    delete:
+      summary: Cancel a job
+      operationId: cancelJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '404':
+          description: Job not found
+        '409':
+          description: Job already completed or failed
+        '500':
+          description: Server error
+
+components:
+  schemas:
+    UploadResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the uploaded PDF
+        filename:
+          type: string
+          description: Original filename
+        url:
+          type: string
+          description: MinIO URL for the uploaded file
+      required:
+        - id
+        - filename
+        - url
+
+    ResourceList:
+      type: object
+      properties:
+        pdfs:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+        texts:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+      required:
+        - pdfs
+        - texts
+        - translations
+
+    FileInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the file
+        filename:
+          type: string
+          description: Name of the file
+        url:
+          type: string
+          description: MinIO URL for downloading
+        createdAt:
+          type: string
+          format: date-time
+        size:
+          type: integer
+          description: File size in bytes
+      required:
+        - id
+        - filename
+        - url
+        - createdAt
+        - size
+
+    ConversionRequest:
+      type: object
+      properties:
+        pdfId:
+          type: string
+          description: ID of the PDF to convert
+      required:
+        - pdfId
+
+    TranslationRequest:
+      type: object
+      properties:
+        textId:
+          type: string
+          description: ID of the text file to translate
+        sourceLanguage:
+          type: string
+          description: Source language code (e.g., 'en')
+        targetLanguage:
+          type: string
+          description: Target language code (e.g., 'zh-TW')
+        modelProvider:
+          type: string
+          enum: ['ollama']
+          description: Translation model provider
+        model:
+          type: string
+          enum: ['llama3.3']
+          description: Translation model to use
+      required:
+        - textId
+        - sourceLanguage
+        - targetLanguage
+        - modelProvider
+        - model
+
+    JobResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          description: Unique identifier for the job
+        status:
+          type: string
+          enum: ['accepted', 'processing', 'completed', 'failed', 'cancelled']
+        message:
+          type: string
+          description: Additional information about the job
+      required:
+        - jobId
+        - status
+
+    JobDetail:
+      type: object
+      properties:
+        jobId:
+          type: string
+          description: Unique identifier for the job
+        status:
+          type: string
+          enum: ['accepted', 'processing', 'completed', 'failed', 'cancelled']
+        type:
+          type: string
+          enum: ['conversion', 'translation']
+          description: Type of the job
+        progress:
+          type: integer
+          description: Progress percentage (0-100)
+          minimum: 0
+          maximum: 100
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: Additional information about the job
+        error:
+          type: string
+          description: Error message if job failed
+        metadata:
+          type: object
+          description: Additional job-specific metadata
+      required:
+        - jobId
+        - status
+        - type
+        - progress
+        - startedAt
