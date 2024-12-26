@@ -1,6 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -50,6 +47,8 @@ func init() {
 }
 
 func Evaluate(cmd *cobra.Command, args []string) {
+	initDependency()
+
 	ctx := context.Background()
 	inputPath, _ := cmd.Flags().GetString("input")
 	evaluatePath, _ := cmd.Flags().GetString("evaluate")
@@ -320,10 +319,11 @@ func Evaluate(cmd *cobra.Command, args []string) {
 	}
 
 	if processedEvals > 0 {
-		averageScore := (totalScore / float64(processedEvals)) * 100
+		averageScore := totalScore / float64(processedEvals)
 		fmt.Printf("\nEvaluation Results (k=%d):\n", k)
 		fmt.Printf("Total evaluations: %d\n", processedEvals)
 		fmt.Printf("Average score: %.2f\n", averageScore)
+		fmt.Printf("Pass@%d: %.2f%%\n", k, averageScore*100)
 		if useBM25 {
 			fmt.Printf("Percentage of results from Weaviate: %.2f%%\n", (totalSemanticCount/float64(totalResult))*100)
 			fmt.Printf("Percentage of results from Elasticsearch: %.2f%%\n", (totalElasticCount/float64(totalResult))*100)
@@ -448,7 +448,7 @@ var (
 	esClient     *elasticsearch.Client
 )
 
-func init() {
+func initDependency() {
 	// Initialize Ollama client
 	baseURL, err := url.Parse("http://localhost:11434")
 	if err != nil {
