@@ -102,25 +102,3 @@ func RunServer(cmd *cobra.Command, args []string) {
 
 	log.Println("Server exited")
 }
-
-func settingDefaultConfig() {
-	// Set default values
-	viper.SetDefault("minio.endpoint", "localhost:9000")
-	viper.SetDefault("minio.domain", "http://localhost:9000")
-	viper.SetDefault("minio.access_key", "minioadmin")
-	viper.SetDefault("minio.secret_key", "minioadmin")
-	viper.SetDefault("minio.pdf_bucket", "pdfs")
-	viper.SetDefault("server.port", "8080")
-	viper.SetDefault("server.shutdown_timeout", "5s")
-
-	// Map environment variables to Viper keys
-	viper.BindEnv("minio.endpoint", "MINIO_ENDPOINT")
-	viper.BindEnv("minio.domain", "MINIO_DOMAIN")
-	viper.BindEnv("minio.access_key", "MINIO_ACCESS_KEY")
-	viper.BindEnv("minio.secret_key", "MINIO_SECRET_KEY")
-	viper.BindEnv("minio.pdf_bucket", "MINIO_PDF_BUCKET")
-	viper.BindEnv("server.port", "SERVER_PORT")
-	viper.BindEnv("server.shutdown_timeout", "SERVER_SHUTDOWN_TIMEOUT")
-
-	viper.AutomaticEnv()
-}
