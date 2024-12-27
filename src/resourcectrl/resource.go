@@ -47,6 +47,23 @@ func (s *ResourceService) GetByID(ctx context.Context, id int64) (*Resource, err
 	return &resource, nil
 }
 
+// List returns a paginated list of resources
+func (s *ResourceService) List(ctx context.Context, limit int, offset int) ([]Resource, error) {
+	var resources []Resource
+
+	result := s.db.WithContext(ctx).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&resources)
+
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to list resources: %v", result.Error)
+	}
+
+	return resources, nil
+}
+
 func (s *ResourceService) Create(ctx context.Context, filename, minioURL string) (*Resource, error) {
 	resource := &Resource{
 		ID:       s.snowflake.Generate().Int64(),

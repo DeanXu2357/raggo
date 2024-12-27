@@ -42,6 +42,41 @@ func NewPDFHandler(minioClient *minio.Client, bucketName string, minioDomain str
 	}, nil
 }
 
+func (h *PDFHandler) List(c *gin.Context) {
+	// Parse query parameters with defaults
+	limit := 10 // default limit
+	offset := 0 // default offset
+
+	if limitParam := c.Query("limit"); limitParam != "" {
+		if _, err := fmt.Sscanf(limitParam, "%d", &limit); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid limit parameter"})
+			return
+		}
+	}
+
+	if offsetParam := c.Query("offset"); offsetParam != "" {
+		if _, err := fmt.Sscanf(offsetParam, "%d", &offset); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid offset parameter"})
+			return
+		}
+	}
+
+	// Get resources from service
+	resources, err := h.resourceService.List(c.Request.Context(), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list resources"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"resources": resources,
+		"pagination": gin.H{
+			"limit":  limit,
+			"offset": offset,
+		},
+	})
+}
+
 func (h *PDFHandler) Upload(c *gin.Context) {
 	// Get file from request
 	file, header, err := c.Request.FormFile("file")

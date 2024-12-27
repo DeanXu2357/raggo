@@ -120,6 +120,7 @@ func RunServer(cmd *cobra.Command, args []string) {
 	}
 
 	// Register routes
+	r.GET("/pdfs", pdfHandler.List)
 	r.POST("/pdfs", pdfHandler.Upload)
 	r.POST("/conversion", conversionHandler.Convert)
 
