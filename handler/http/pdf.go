@@ -75,9 +75,6 @@ func (h *PDFHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	// Generate file URL using injected domain
-	url := fmt.Sprintf("%s/%s/%s", h.minioDomain, h.bucketName, objectName)
-
 	// Create resource record
 	resource, err := h.resourceService.Create(c.Request.Context(), header.Filename, fmt.Sprintf("%s/%s", h.bucketName, objectName))
 	if err != nil {
@@ -89,6 +86,5 @@ func (h *PDFHandler) Upload(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"id":       resource.ID,
 		"filename": resource.Filename,
-		"url":      url,
 	})
 }

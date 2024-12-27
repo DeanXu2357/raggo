@@ -153,13 +153,9 @@ components:
         filename:
           type: string
           description: Original filename
-        url:
-          type: string
-          description: MinIO URL for the file
       required:
         - id
         - filename
-        - url
 
     ResourceList:
       type: object
