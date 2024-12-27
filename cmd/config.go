@@ -19,6 +19,7 @@ func settingDefaultConfig() {
 	viper.BindEnv("minio.access_key", "MINIO_ACCESS_KEY")
 	viper.BindEnv("minio.secret_key", "MINIO_SECRET_KEY")
 	viper.BindEnv("minio.pdf_bucket", "MINIO_PDF_BUCKET")
+	viper.BindEnv("minio.chunk_bucket", "MINIO_CHUNKS_BUCKET")
 	viper.BindEnv("server.port", "SERVER_PORT")
 	viper.BindEnv("server.shutdown_timeout", "SERVER_SHUTDOWN_TIMEOUT")
 
@@ -35,6 +36,11 @@ func settingDefaultConfig() {
 	viper.SetDefault("minio.access_key", "minioadmin")
 	viper.SetDefault("minio.secret_key", "minioadmin")
 	viper.SetDefault("minio.pdf_bucket", "pdfs")
+	viper.SetDefault("minio.chunk_bucket", "chunks")
+
+	// Set default values for Unstructured API
+	viper.BindEnv("unstructured.url", "UNSTRUCTURED_API_URL")
+	viper.SetDefault("unstructured.url", "http://unstructured_api:8000")
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.shutdown_timeout", "5s")
 }

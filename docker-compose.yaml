@@ -129,6 +129,23 @@ services:
         reservations:
           memory: 2G
 
+  unstructured_api:
+    image: quay.io/unstructured-io/unstructured-api:latest
+    ports:
+      - "8008:8000"
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+
 networks:
   backend:
     driver: bridge

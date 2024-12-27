@@ -22,6 +22,7 @@ import (
 	"gorm.io/gorm"
 
 	httpHdlr "raggo/handler/http"
+	"raggo/src/chunkctrl"
 	"raggo/src/resourcectrl"
 )
 
@@ -66,8 +67,13 @@ func RunServer(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Initialize ResourceService
+	// Initialize services
 	resourceService, err := resourcectrl.NewResourceService(db)
+	if err != nil {
+		log.Fatalf("Failed to create resource service: %v", err)
+	}
+
+	chunkService, err := chunkctrl.NewChunkService(db)
 	if err != nil {
 		log.Fatalf("Failed to create resource service: %v", err)
 	}
@@ -85,7 +91,7 @@ func RunServer(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to create MinIO client: %v", err)
 	}
 
-	// Initialize PDF handler with MinIO client, config, and resource service
+	// Initialize handlers
 	pdfHandler, err := httpHdlr.NewPDFHandler(
 		minioClient,
 		viper.GetString("minio.pdf_bucket"),
@@ -99,8 +105,23 @@ func RunServer(cmd *cobra.Command, args []string) {
 	// Setup gin router
 	r := gin.Default()
 
+	// Initialize conversion handler
+	conversionHandler, err := httpHdlr.NewConversionHandler(
+		minioClient,
+		viper.GetString("minio.pdf_bucket"),
+		viper.GetString("minio.chunk_bucket"),
+		viper.GetString("minio.domain"),
+		viper.GetString("unstructured.url"),
+		resourceService,
+		chunkService,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize conversion handler: %v", err)
+	}
+
 	// Register routes
 	r.POST("/pdfs", pdfHandler.Upload)
+	r.POST("/conversion", conversionHandler.Convert)
 
 	// Create HTTP server
 	srv := &http.Server{

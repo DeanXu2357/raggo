@@ -35,6 +35,18 @@ func NewResourceService(db *gorm.DB) (*ResourceService, error) {
 	}, nil
 }
 
+func (s *ResourceService) GetByID(ctx context.Context, id int64) (*Resource, error) {
+	var resource Resource
+	result := s.db.WithContext(ctx).First(&resource, id)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get resource: %v", result.Error)
+	}
+	return &resource, nil
+}
+
 func (s *ResourceService) Create(ctx context.Context, filename, minioURL string) (*Resource, error) {
 	resource := &Resource{
 		ID:       s.snowflake.Generate().Int64(),
