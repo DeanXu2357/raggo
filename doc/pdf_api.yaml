@@ -155,7 +155,7 @@ components:
           description: Original filename
         url:
           type: string
-          description: MinIO URL for the uploaded file
+          description: MinIO URL for the file
       required:
         - id
         - filename

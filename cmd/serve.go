@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -17,8 +18,11 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 
 	httpHdlr "raggo/handler/http"
+	"raggo/src/resourcectrl"
 )
 
 // serveCmd represents the serve command
@@ -36,6 +40,38 @@ func init() {
 }
 
 func RunServer(cmd *cobra.Command, args []string) {
+	// Initialize PostgreSQL connection
+	host := viper.GetString("postgres.host")
+	user := viper.GetString("postgres.user")
+	password := viper.GetString("postgres.password")
+	dbname := viper.GetString("postgres.db")
+	port := viper.GetString("postgres.port")
+
+	log.Printf("Environment variables:")
+	log.Printf("POSTGRES_HOST: %s", os.Getenv("POSTGRES_HOST"))
+	log.Printf("POSTGRES_PORT: %s", os.Getenv("POSTGRES_PORT"))
+	log.Printf("POSTGRES_USER: %s", os.Getenv("POSTGRES_USER"))
+	log.Printf("POSTGRES_DB: %s", os.Getenv("POSTGRES_DB"))
+
+	log.Printf("Viper configuration:")
+	log.Printf("postgres.host: %s", viper.GetString("postgres.host"))
+	log.Printf("postgres.port: %s", viper.GetString("postgres.port"))
+	log.Printf("postgres.user: %s", viper.GetString("postgres.user"))
+	log.Printf("postgres.db: %s", viper.GetString("postgres.db"))
+
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		host, user, password, dbname, port)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	// Initialize ResourceService
+	resourceService, err := resourcectrl.NewResourceService(db)
+	if err != nil {
+		log.Fatalf("Failed to create resource service: %v", err)
+	}
+
 	// Initialize MinIO client with config from viper
 	minioClient, err := minio.New(viper.GetString("minio.endpoint"), &minio.Options{
 		Creds: credentials.NewStaticV4(
@@ -49,11 +85,12 @@ func RunServer(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to create MinIO client: %v", err)
 	}
 
-	// Initialize PDF handler with MinIO client and config
+	// Initialize PDF handler with MinIO client, config, and resource service
 	pdfHandler, err := httpHdlr.NewPDFHandler(
 		minioClient,
 		viper.GetString("minio.pdf_bucket"),
 		viper.GetString("minio.domain"),
+		resourceService,
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize PDF handler: %v", err)
@@ -94,6 +131,15 @@ func RunServer(cmd *cobra.Command, args []string) {
 	// Create context with timeout for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
+	// Get underlying *sql.DB
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Printf("Failed to get underlying *sql.DB: %v", err)
+	} else {
+		// Close database connection
+		sqlDB.Close()
+	}
 
 	// Attempt graceful shutdown
 	if err := srv.Shutdown(ctx); err != nil {

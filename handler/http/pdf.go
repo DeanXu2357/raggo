@@ -9,15 +9,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
+
+	"raggo/src/resourcectrl"
 )
 
 type PDFHandler struct {
-	minioClient *minio.Client
-	bucketName  string
-	minioDomain string
+	minioClient     *minio.Client
+	bucketName      string
+	minioDomain     string
+	resourceService *resourcectrl.ResourceService
 }
 
-func NewPDFHandler(minioClient *minio.Client, bucketName string, minioDomain string) (*PDFHandler, error) {
+func NewPDFHandler(minioClient *minio.Client, bucketName string, minioDomain string, resourceService *resourcectrl.ResourceService) (*PDFHandler, error) {
 	// Ensure bucket exists
 	exists, err := minioClient.BucketExists(context.Background(), bucketName)
 	if err != nil {
@@ -32,9 +35,10 @@ func NewPDFHandler(minioClient *minio.Client, bucketName string, minioDomain str
 	}
 
 	return &PDFHandler{
-		minioClient: minioClient,
-		bucketName:  bucketName,
-		minioDomain: minioDomain,
+		minioClient:     minioClient,
+		bucketName:      bucketName,
+		minioDomain:     minioDomain,
+		resourceService: resourceService,
 	}, nil
 }
 
@@ -74,10 +78,17 @@ func (h *PDFHandler) Upload(c *gin.Context) {
 	// Generate file URL using injected domain
 	url := fmt.Sprintf("%s/%s/%s", h.minioDomain, h.bucketName, objectName)
 
+	// Create resource record
+	resource, err := h.resourceService.Create(c.Request.Context(), header.Filename, fmt.Sprintf("%s/%s", h.bucketName, objectName))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record resource"})
+		return
+	}
+
 	// Return response according to OpenAPI spec
 	c.JSON(http.StatusCreated, gin.H{
-		"id":       id,
-		"filename": header.Filename,
+		"id":       resource.ID,
+		"filename": resource.Filename,
 		"url":      url,
 	})
 }

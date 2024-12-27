@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS resources (
+    id BIGINT PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    minio_url TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_resources_created_at ON resources(created_at);
