@@ -47,6 +47,25 @@ services:
       timeout: 20s
       retries: 3
 
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    ports:
+      - "5672:5672"   # AMQP protocol port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rmqsuperguest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   raggo:
     build:
       context: .
@@ -66,11 +85,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      AMQP_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
     networks:
       - backend
     restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       minio:
         condition: service_started
@@ -83,6 +105,36 @@ services:
       resources:
         limits:
           memory: 2G
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["go", "run", "main.go", "worker"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      AMQP_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+    networks:
+      - backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
 
   postgres:
     image: postgres:17.2-alpine3.21
@@ -155,3 +207,4 @@ volumes:
   elasticsearch_data:
   minio_data:
   postgres_data:
+  rabbitmq_data:

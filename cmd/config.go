@@ -23,6 +23,9 @@ func settingDefaultConfig() {
 	viper.BindEnv("server.port", "SERVER_PORT")
 	viper.BindEnv("server.shutdown_timeout", "SERVER_SHUTDOWN_TIMEOUT")
 
+	// Map environment variables to Viper keys for RabbitMQ
+	viper.BindEnv("amqp.url", "AMQP_URL")
+
 	// Set default values for PostgreSQL
 	viper.SetDefault("postgres.host", "localhost")
 	viper.SetDefault("postgres.port", "5432")
@@ -37,6 +40,9 @@ func settingDefaultConfig() {
 	viper.SetDefault("minio.secret_key", "minioadmin")
 	viper.SetDefault("minio.pdf_bucket", "pdfs")
 	viper.SetDefault("minio.chunk_bucket", "chunks")
+
+	// Set default values for RabbitMQ
+	viper.SetDefault("amqp.url", "amqp://guest:guest@localhost:5672/")
 
 	// Set default values for Unstructured API
 	viper.BindEnv("unstructured.url", "UNSTRUCTURED_API_URL")
