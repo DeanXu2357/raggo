@@ -77,8 +77,10 @@ func runWorker(cmd *cobra.Command, args []string) error {
 	defer amqpPublisher.Close()
 
 	// Initialize AMQP subscriber
+	subscriberConfig := amqp.NewDurableQueueConfig(viper.GetString("amqp.url"))
+	subscriberConfig.Consume.NoRequeueOnNack = true
 	amqpSubscriber, err := amqp.NewSubscriber(
-		amqp.NewDurableQueueConfig(viper.GetString("amqp.url")),
+		subscriberConfig,
 		watermill.NewStdLogger(false, false),
 	)
 	if err != nil {

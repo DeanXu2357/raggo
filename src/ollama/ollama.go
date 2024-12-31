@@ -109,11 +109,11 @@ func (c *Client) Generate(ctx context.Context, model, system, prompt string, opt
 	}
 
 	url := fmt.Sprintf("%s/generate", c.baseURL)
-	log.Debug("sending request to ollama",
-		"url", url,
-		"model", model,
-		"options", options,
-		"prompt_length", len(prompt))
+	//log.Debug("sending request to ollama",
+	//	"url", url,
+	//	"model", model,
+	//	"options", options,
+	//	"prompt_length", len(prompt))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -128,9 +128,9 @@ func (c *Client) Generate(ctx context.Context, model, system, prompt string, opt
 		return "", fmt.Errorf("error making request: %w", err)
 	}
 
-	log.Debug("received response from ollama",
-		"status", resp.Status,
-		"content_length", resp.ContentLength)
+	//log.Debug("received response from ollama",
+	//	"status", resp.Status,
+	//	"content_length", resp.ContentLength)
 	defer resp.Body.Close()
 
 	reader := bufio.NewReader(resp.Body)
@@ -153,7 +153,7 @@ func (c *Client) Generate(ctx context.Context, model, system, prompt string, opt
 			continue
 		}
 
-		log.Debug("received raw response line", "line", string(line))
+		//log.Debug("received raw response line", "line", string(line))
 
 		var response GenerateResponse
 		if err := json.Unmarshal(line, &response); err != nil {
@@ -161,12 +161,12 @@ func (c *Client) Generate(ctx context.Context, model, system, prompt string, opt
 			return "", fmt.Errorf("error unmarshaling response: %w", err)
 		}
 
-		log.Debug("received response chunk", "response", response.Response, "done", response.Done)
+		//log.Debug("received response chunk", "response", response.Response, "done", response.Done)
 		fullResponse.WriteString(response.Response)
 
 		if response.Done {
 			lastResponse = fullResponse.String()
-			log.Debug("completed response", "full_response", lastResponse)
+			//log.Debug("completed response", "full_response", lastResponse)
 			if lastResponse != "" {
 				return lastResponse, nil
 			}
