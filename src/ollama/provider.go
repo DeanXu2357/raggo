@@ -30,8 +30,8 @@ func (o *OllamaProvider) TextSplit(ctx context.Context, text string, chunkSize, 
 	return spliter.SplitText(text)
 }
 
-func (o *OllamaProvider) Reasoning(ctx context.Context, text string) (string, error) {
-	return o.ollamaClient.Generate(ctx, o.modelName, text, map[string]interface{}{
+func (o *OllamaProvider) Reasoning(ctx context.Context, system string, prompt string) (string, error) {
+	return o.ollamaClient.Generate(ctx, o.modelName, system, prompt, map[string]interface{}{
 		"temperature": 0.7,
 		"top_p":       0.9,
 	})

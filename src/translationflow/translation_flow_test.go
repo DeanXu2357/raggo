@@ -6,6 +6,70 @@ import (
 	"raggo/src/translationflow"
 )
 
+func TestExecuteTemplatesForTest(t *testing.T) {
+	tf := translationflow.NewTranslationFlow(nil)
+	data := translationflow.TemplateData{
+		SourceLang: "en",
+		TargetLang: "zh",
+		Country:    "TW",
+		SourceText: "Hello World",
+	}
+
+	tests := []struct {
+		name       string
+		systemTmpl string
+		promptTmpl string
+		wantSystem string
+		wantPrompt string
+		wantErr    bool
+	}{
+		{
+			name:       "basic template",
+			systemTmpl: "Translate from {{.SourceLang}} to {{.TargetLang}}",
+			promptTmpl: "Text: {{.SourceText}}",
+			wantSystem: "Translate from en to zh",
+			wantPrompt: "Text: Hello World",
+			wantErr:    false,
+		},
+		{
+			name:       "with country code",
+			systemTmpl: "Translate from {{.SourceLang}} to {{.TargetLang}} ({{.Country}})",
+			promptTmpl: "Please translate: {{.SourceText}}",
+			wantSystem: "Translate from en to zh (TW)",
+			wantPrompt: "Please translate: Hello World",
+			wantErr:    false,
+		},
+		{
+			name:       "invalid template",
+			systemTmpl: "Translate from {{.InvalidField}}",
+			promptTmpl: "Text: {{.SourceText}}",
+			wantSystem: "",
+			wantPrompt: "",
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotSystem, gotPrompt, err := tf.ExecuteTemplatesForTest(tt.systemTmpl, tt.promptTmpl, data)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ExecuteTemplatesForTest() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if gotSystem != tt.wantSystem {
+					t.Errorf("ExecuteTemplatesForTest() system = %v, want %v", gotSystem, tt.wantSystem)
+				}
+				if gotPrompt != tt.wantPrompt {
+					t.Errorf("ExecuteTemplatesForTest() prompt = %v, want %v", gotPrompt, tt.wantPrompt)
+				}
+			}
+		})
+	}
+}
+
 func TestCalculateChunkSize(t *testing.T) {
 	tests := []struct {
 		name       string

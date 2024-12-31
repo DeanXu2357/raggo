@@ -29,6 +29,7 @@ type TokenResponse int
 // GenerateRequest represents the request structure for model generation
 type GenerateRequest struct {
 	Model   string                 `json:"model"`
+	System  string                 `json:"system"`
 	Prompt  string                 `json:"prompt"`
 	Stream  bool                   `json:"stream"`
 	Options map[string]interface{} `json:"options,omitempty"`
@@ -93,9 +94,10 @@ func (c *Client) CountTokens(ctx context.Context, model, prompt string) (int, er
 }
 
 // Generate performs model generation with the given prompt
-func (c *Client) Generate(ctx context.Context, model, prompt string, options map[string]interface{}) (string, error) {
+func (c *Client) Generate(ctx context.Context, model, system, prompt string, options map[string]interface{}) (string, error) {
 	reqBody := GenerateRequest{
 		Model:   model,
+		System:  system,
 		Prompt:  prompt,
 		Stream:  true,
 		Options: options,

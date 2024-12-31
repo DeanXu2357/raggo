@@ -14,7 +14,7 @@ const DefaultMaxTokenPerChunk = 1000
 
 type LLMProvider interface {
 	TextSplit(ctx context.Context, text string, chunkSize, chunkOverLap int) ([]string, error)
-	Reasoning(ctx context.Context, text string) (string, error)
+	Reasoning(ctx context.Context, system string, prompt string) (string, error)
 	TokenLength(ctx context.Context, text string) (int, error)
 }
 
@@ -148,25 +148,25 @@ func (tf *TranslationFlow) processChunk(ctx context.Context, data TemplateData, 
 }
 
 // Template execution helpers
-func (tf *TranslationFlow) executeTemplates(systemTmpl, promptTmpl string, data TemplateData) (string, error) {
+func (tf *TranslationFlow) executeTemplates(systemTmpl, promptTmpl string, data TemplateData) (string, string, error) {
 	var systemBuf, promptBuf bytes.Buffer
 
 	sysT := template.Must(template.New("system").Parse(systemTmpl))
 	if err := sysT.Execute(&systemBuf, data); err != nil {
-		return "", fmt.Errorf("failed to execute system template: %w", err)
+		return "", "", fmt.Errorf("failed to execute system template: %w", err)
 	}
 
 	prmptT := template.Must(template.New("prompt").Parse(promptTmpl))
 	if err := prmptT.Execute(&promptBuf, data); err != nil {
-		return "", fmt.Errorf("failed to execute prompt template: %w", err)
+		return "", "", fmt.Errorf("failed to execute prompt template: %w", err)
 	}
 
-	return promptBuf.String(), nil
+	return systemBuf.String(), promptBuf.String(), nil
 }
 
 // Single chunk translation helpers
 func (tf *TranslationFlow) getInitialTranslation(ctx context.Context, data TemplateData) (string, error) {
-	prompt, err := tf.executeTemplates(
+	system, prompt, err := tf.executeTemplates(
 		OneChunkInitialTranslationSystemMessageTmpl,
 		OneChunkInitialTranslationPromptTmpl,
 		data,
@@ -175,8 +175,8 @@ func (tf *TranslationFlow) getInitialTranslation(ctx context.Context, data Templ
 		return "", fmt.Errorf("failed to prepare initial translation templates: %w", err)
 	}
 
-	log.Debug("initial translation prompt", "prompt", prompt)
-	translation, err := tf.llmProvider.Reasoning(ctx, prompt)
+	log.Debug("initial translation", "system", system, "prompt", prompt)
+	translation, err := tf.llmProvider.Reasoning(ctx, system, prompt)
 	if err != nil {
 		log.Error(err, "failed to get initial translation")
 		return "", fmt.Errorf("failed to get initial translation: %w", err)
@@ -186,7 +186,7 @@ func (tf *TranslationFlow) getInitialTranslation(ctx context.Context, data Templ
 }
 
 func (tf *TranslationFlow) getTranslationReflection(ctx context.Context, data TemplateData) (string, error) {
-	prompt, err := tf.executeTemplates(
+	system, prompt, err := tf.executeTemplates(
 		OneChunkReflectOnTranslationSystemMessageTmpl,
 		OneChunkReflectOnTranslationPromptTmpl,
 		data,
@@ -195,8 +195,8 @@ func (tf *TranslationFlow) getTranslationReflection(ctx context.Context, data Te
 		return "", fmt.Errorf("failed to prepare reflection templates: %w", err)
 	}
 
-	log.Debug("reflection prompt", "prompt", prompt)
-	reflection, err := tf.llmProvider.Reasoning(ctx, prompt)
+	log.Debug("reflection", "system", system, "prompt", prompt)
+	reflection, err := tf.llmProvider.Reasoning(ctx, system, prompt)
 	if err != nil {
 		log.Error(err, "failed to get translation reflection")
 		return "", fmt.Errorf("failed to get translation reflection: %w", err)
@@ -206,7 +206,7 @@ func (tf *TranslationFlow) getTranslationReflection(ctx context.Context, data Te
 }
 
 func (tf *TranslationFlow) getImprovedTranslation(ctx context.Context, data TemplateData) (string, error) {
-	prompt, err := tf.executeTemplates(
+	system, prompt, err := tf.executeTemplates(
 		OneChunkImprovementTranslationSystemMessageTmpl,
 		OneChunkImprovementTranslationPromptTmpl,
 		data,
@@ -215,8 +215,8 @@ func (tf *TranslationFlow) getImprovedTranslation(ctx context.Context, data Temp
 		return "", fmt.Errorf("failed to prepare improvement templates: %w", err)
 	}
 
-	log.Debug("improvement prompt", "prompt", prompt)
-	improvedTranslation, err := tf.llmProvider.Reasoning(ctx, prompt)
+	log.Debug("improvement", "system", system, "prompt", prompt)
+	improvedTranslation, err := tf.llmProvider.Reasoning(ctx, system, prompt)
 	if err != nil {
 		log.Error(err, "failed to get improved translation")
 		return "", fmt.Errorf("failed to get improved translation: %w", err)
@@ -236,7 +236,7 @@ func (tf *TranslationFlow) createTaggedText(fullText, currentChunk string) strin
 }
 
 func (tf *TranslationFlow) getMultiChunkInitialTranslation(ctx context.Context, data TemplateData, chunkIndex int) (string, error) {
-	prompt, err := tf.executeTemplates(
+	system, prompt, err := tf.executeTemplates(
 		MultiChunkTranslationSystemMessageTmpl,
 		MultiChunkTranslationPromptTmpl,
 		data,
@@ -245,8 +245,8 @@ func (tf *TranslationFlow) getMultiChunkInitialTranslation(ctx context.Context, 
 		return "", fmt.Errorf("failed to prepare initial translation templates for chunk %d: %w", chunkIndex, err)
 	}
 
-	log.Debug("multi-chunk translation prompt", "prompt", prompt, "chunk_index", chunkIndex)
-	translation, err := tf.llmProvider.Reasoning(ctx, prompt)
+	log.Debug("multi-chunk translation", "system", system, "prompt", prompt, "chunk_index", chunkIndex)
+	translation, err := tf.llmProvider.Reasoning(ctx, system, prompt)
 	if err != nil {
 		log.Error(err, "failed to get multi-chunk translation", "chunk_index", chunkIndex)
 		return "", fmt.Errorf("failed to get translation for chunk %d: %w", chunkIndex, err)
@@ -256,7 +256,7 @@ func (tf *TranslationFlow) getMultiChunkInitialTranslation(ctx context.Context, 
 }
 
 func (tf *TranslationFlow) getMultiChunkReflection(ctx context.Context, data TemplateData, chunkIndex int) (string, error) {
-	prompt, err := tf.executeTemplates(
+	system, prompt, err := tf.executeTemplates(
 		MultiChunkReflectionSystemMessageTmpl,
 		MultiChunkReflectionPromptTmpl,
 		data,
@@ -265,8 +265,8 @@ func (tf *TranslationFlow) getMultiChunkReflection(ctx context.Context, data Tem
 		return "", fmt.Errorf("failed to prepare reflection templates for chunk %d: %w", chunkIndex, err)
 	}
 
-	log.Debug("multi-chunk reflection prompt", "prompt", prompt, "chunk_index", chunkIndex)
-	reflection, err := tf.llmProvider.Reasoning(ctx, prompt)
+	log.Debug("multi-chunk reflection", "system", system, "prompt", prompt, "chunk_index", chunkIndex)
+	reflection, err := tf.llmProvider.Reasoning(ctx, system, prompt)
 	if err != nil {
 		log.Error(err, "failed to get multi-chunk reflection", "chunk_index", chunkIndex)
 		return "", fmt.Errorf("failed to get reflection for chunk %d: %w", chunkIndex, err)
@@ -276,7 +276,7 @@ func (tf *TranslationFlow) getMultiChunkReflection(ctx context.Context, data Tem
 }
 
 func (tf *TranslationFlow) getMultiChunkImprovedTranslation(ctx context.Context, data TemplateData, chunkIndex int) (string, error) {
-	prompt, err := tf.executeTemplates(
+	system, prompt, err := tf.executeTemplates(
 		MultiChunkImprovementSystemMessageTmpl,
 		MultiChunkImprovementPromptTmpl,
 		data,
@@ -285,8 +285,8 @@ func (tf *TranslationFlow) getMultiChunkImprovedTranslation(ctx context.Context,
 		return "", fmt.Errorf("failed to prepare improvement templates for chunk %d: %w", chunkIndex, err)
 	}
 
-	log.Debug("multi-chunk improvement prompt", "prompt", prompt, "chunk_index", chunkIndex)
-	improvedTranslation, err := tf.llmProvider.Reasoning(ctx, prompt)
+	log.Debug("multi-chunk improvement", "system", system, "prompt", prompt, "chunk_index", chunkIndex)
+	improvedTranslation, err := tf.llmProvider.Reasoning(ctx, system, prompt)
 	if err != nil {
 		log.Error(err, "failed to get multi-chunk improved translation", "chunk_index", chunkIndex)
 		return "", fmt.Errorf("failed to get final translation for chunk %d: %w", chunkIndex, err)
@@ -299,7 +299,7 @@ func (tf *TranslationFlow) CreateTaggedTextForTest(fullText, currentChunk string
 	return tf.createTaggedText(fullText, currentChunk)
 }
 
-func (tf *TranslationFlow) ExecuteTemplatesForTest(systemTmpl, promptTmpl string, data TemplateData) (string, error) {
+func (tf *TranslationFlow) ExecuteTemplatesForTest(systemTmpl, promptTmpl string, data TemplateData) (string, string, error) {
 	return tf.executeTemplates(systemTmpl, promptTmpl, data)
 }
 
