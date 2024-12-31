@@ -10,9 +10,10 @@ import (
 )
 
 type JobService struct {
-	publisher message.Publisher
-	repo      JobRepository
-	logger    watermill.LoggerAdapter
+	publisher       message.Publisher
+	repo            JobRepository
+	logger          watermill.LoggerAdapter
+	translationTask *TranslationTask
 }
 
 type JobMessage struct {
@@ -25,11 +26,17 @@ type TestPayload struct {
 	Print string `json:"print"`
 }
 
-func NewJobService(publisher message.Publisher, repo JobRepository, logger watermill.LoggerAdapter) *JobService {
+func NewJobService(
+	publisher message.Publisher,
+	repo JobRepository,
+	logger watermill.LoggerAdapter,
+	translator *TranslationTask,
+) *JobService {
 	return &JobService{
-		publisher: publisher,
-		repo:      repo,
-		logger:    logger,
+		publisher:       publisher,
+		repo:            repo,
+		logger:          logger,
+		translationTask: translator,
 	}
 }
 
@@ -120,6 +127,8 @@ func (s *JobService) processJob(ctx context.Context, job *Job) error {
 			"print":  payload.Print,
 		})
 		return nil
+	case TaskTypeTranslation:
+		return s.translationTask.HandleTranslationTask(ctx, job.Payload)
 	default:
 		return fmt.Errorf("unknown task type: %s", job.TaskType)
 	}

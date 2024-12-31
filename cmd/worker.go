@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,10 +17,17 @@ import (
 	"github.com/ThreeDotsLabs/watermill-amqp/pkg/amqp"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"raggo/src/chunkctrl"
 	"raggo/src/jobctrl"
+	"raggo/src/minioctrl"
+	"raggo/src/ollama"
+	"raggo/src/resourcectrl"
+	"raggo/src/translatedchunkctrl"
+	"raggo/src/translatedresourcectrl"
 )
 
 var workerCmd = &cobra.Command{
@@ -95,9 +103,57 @@ func runWorker(cmd *cobra.Command, args []string) error {
 		}.Middleware,
 	)
 
+	// Initialize MinioService
+	minioService, err := minioctrl.NewMinioService(
+		viper.GetString("minio.endpoint"),
+		viper.GetString("minio.access_key"),
+		viper.GetString("minio.secret_key"),
+		viper.GetBool("minio.use_ssl"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize minio service: %v", err)
+	}
+
+	// Initialize OllamaClient
+	ollamaClient := ollama.NewClient("http://ollama:11434/api", &http.Client{})
+
+	// Initialize ResourceService
+	resourceService, err := resourcectrl.NewResourceService(db)
+	if err != nil {
+		return fmt.Errorf("failed to initialize resource service: %v", err)
+	}
+
+	// Initialize ChunkService
+	chunkService, err := chunkctrl.NewChunkService(db)
+	if err != nil {
+		return fmt.Errorf("failed to initialize chunk service: %v", err)
+	}
+
+	// Initialize TranslatedResourceService
+	translatedResourceService, err := translatedresourcectrl.NewTranslatedResourceService(db)
+	if err != nil {
+		return fmt.Errorf("failed to initialize translated resource service: %v", err)
+	}
+
+	// Initialize TranslatedChunkService
+	translatedChunkService, err := translatedchunkctrl.NewTranslatedChunkService(db)
+	if err != nil {
+		return fmt.Errorf("failed to initialize translated chunk service: %v", err)
+	}
+
+	// Initialize TranslationTask
+	translationTask := jobctrl.NewTranslationTask(
+		resourceService,
+		chunkService,
+		translatedResourceService,
+		translatedChunkService,
+		minioService,
+		ollamaClient,
+	)
+
 	// Initialize job repository and service
 	jobRepo := jobctrl.NewPostgresJobRepository(db)
-	jobService := jobctrl.NewJobService(amqpPublisher, jobRepo, logger)
+	jobService := jobctrl.NewJobService(amqpPublisher, jobRepo, logger, translationTask)
 
 	// Add handler for processing jobs
 	router.AddNoPublisherHandler(

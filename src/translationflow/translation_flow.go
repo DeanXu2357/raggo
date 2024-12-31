@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+
+	"raggo/src/log"
 )
 
 const DefaultMaxTokenPerChunk = 1000
@@ -20,6 +22,7 @@ type LLMProvider interface {
 type TemplateData struct {
 	SourceLang       string
 	TargetLang       string
+	Country          string
 	SourceText       string
 	TaggedText       string
 	ChunkToTranslate string
@@ -55,23 +58,24 @@ func WithMaxTokenPerChunk(maxTokenPerChunk int) Option {
 	}
 }
 
-func (tf *TranslationFlow) Translate(ctx context.Context, text string, sourceLanguage, targetLanguage string) (string, error) {
+func (tf *TranslationFlow) Translate(ctx context.Context, text string, sourceLanguage, targetLanguage, country string) (string, error) {
 	tokenLength, err := tf.llmProvider.TokenLength(ctx, text)
 	if err != nil {
 		return "", fmt.Errorf("failed to get token length: %w", err)
 	}
 
 	if tokenLength < tf.maxTokenPerChunk {
-		return tf.handleSingleChunkTranslation(ctx, text, sourceLanguage, targetLanguage)
+		return tf.handleSingleChunkTranslation(ctx, text, sourceLanguage, targetLanguage, country)
 	}
-	return tf.handleMultiChunkTranslation(ctx, text, sourceLanguage, targetLanguage, tokenLength)
+	return tf.handleMultiChunkTranslation(ctx, text, sourceLanguage, targetLanguage, country, tokenLength)
 }
 
 // handleSingleChunkTranslation processes a text that fits within token limits
-func (tf *TranslationFlow) handleSingleChunkTranslation(ctx context.Context, text, sourceLanguage, targetLanguage string) (string, error) {
+func (tf *TranslationFlow) handleSingleChunkTranslation(ctx context.Context, text, sourceLanguage, targetLanguage, country string) (string, error) {
 	data := TemplateData{
 		SourceLang: sourceLanguage,
 		TargetLang: targetLanguage,
+		Country:    country,
 		SourceText: text,
 	}
 
@@ -94,7 +98,7 @@ func (tf *TranslationFlow) handleSingleChunkTranslation(ctx context.Context, tex
 }
 
 // handleMultiChunkTranslation processes a text that needs to be split into chunks
-func (tf *TranslationFlow) handleMultiChunkTranslation(ctx context.Context, text, sourceLanguage, targetLanguage string, tokenLength int) (string, error) {
+func (tf *TranslationFlow) handleMultiChunkTranslation(ctx context.Context, text, sourceLanguage, targetLanguage, country string, tokenLength int) (string, error) {
 	chunkSize := CalculateChunkSize(tokenLength, tf.maxTokenPerChunk)
 	chunks, err := tf.llmProvider.TextSplit(ctx, text, chunkSize, chunkSize/10)
 	if err != nil {
@@ -108,6 +112,7 @@ func (tf *TranslationFlow) handleMultiChunkTranslation(ctx context.Context, text
 		data := TemplateData{
 			SourceLang:       sourceLanguage,
 			TargetLang:       targetLanguage,
+			Country:          country,
 			TaggedText:       taggedText,
 			ChunkToTranslate: chunk,
 		}
@@ -170,10 +175,13 @@ func (tf *TranslationFlow) getInitialTranslation(ctx context.Context, data Templ
 		return "", fmt.Errorf("failed to prepare initial translation templates: %w", err)
 	}
 
+	log.Debug("initial translation prompt", "prompt", prompt)
 	translation, err := tf.llmProvider.Reasoning(ctx, prompt)
 	if err != nil {
+		log.Error(err, "failed to get initial translation")
 		return "", fmt.Errorf("failed to get initial translation: %w", err)
 	}
+	log.Debug("initial translation result", "translation", translation)
 	return translation, nil
 }
 
@@ -187,10 +195,13 @@ func (tf *TranslationFlow) getTranslationReflection(ctx context.Context, data Te
 		return "", fmt.Errorf("failed to prepare reflection templates: %w", err)
 	}
 
+	log.Debug("reflection prompt", "prompt", prompt)
 	reflection, err := tf.llmProvider.Reasoning(ctx, prompt)
 	if err != nil {
+		log.Error(err, "failed to get translation reflection")
 		return "", fmt.Errorf("failed to get translation reflection: %w", err)
 	}
+	log.Debug("reflection result", "reflection", reflection)
 	return reflection, nil
 }
 
@@ -204,10 +215,13 @@ func (tf *TranslationFlow) getImprovedTranslation(ctx context.Context, data Temp
 		return "", fmt.Errorf("failed to prepare improvement templates: %w", err)
 	}
 
+	log.Debug("improvement prompt", "prompt", prompt)
 	improvedTranslation, err := tf.llmProvider.Reasoning(ctx, prompt)
 	if err != nil {
+		log.Error(err, "failed to get improved translation")
 		return "", fmt.Errorf("failed to get improved translation: %w", err)
 	}
+	log.Debug("improvement result", "translation", improvedTranslation)
 	return improvedTranslation, nil
 }
 
@@ -231,10 +245,13 @@ func (tf *TranslationFlow) getMultiChunkInitialTranslation(ctx context.Context, 
 		return "", fmt.Errorf("failed to prepare initial translation templates for chunk %d: %w", chunkIndex, err)
 	}
 
+	log.Debug("multi-chunk translation prompt", "prompt", prompt, "chunk_index", chunkIndex)
 	translation, err := tf.llmProvider.Reasoning(ctx, prompt)
 	if err != nil {
+		log.Error(err, "failed to get multi-chunk translation", "chunk_index", chunkIndex)
 		return "", fmt.Errorf("failed to get translation for chunk %d: %w", chunkIndex, err)
 	}
+	log.Debug("multi-chunk translation result", "translation", translation, "chunk_index", chunkIndex)
 	return translation, nil
 }
 
@@ -248,10 +265,13 @@ func (tf *TranslationFlow) getMultiChunkReflection(ctx context.Context, data Tem
 		return "", fmt.Errorf("failed to prepare reflection templates for chunk %d: %w", chunkIndex, err)
 	}
 
+	log.Debug("multi-chunk reflection prompt", "prompt", prompt, "chunk_index", chunkIndex)
 	reflection, err := tf.llmProvider.Reasoning(ctx, prompt)
 	if err != nil {
+		log.Error(err, "failed to get multi-chunk reflection", "chunk_index", chunkIndex)
 		return "", fmt.Errorf("failed to get reflection for chunk %d: %w", chunkIndex, err)
 	}
+	log.Debug("multi-chunk reflection result", "reflection", reflection, "chunk_index", chunkIndex)
 	return reflection, nil
 }
 
@@ -265,10 +285,13 @@ func (tf *TranslationFlow) getMultiChunkImprovedTranslation(ctx context.Context,
 		return "", fmt.Errorf("failed to prepare improvement templates for chunk %d: %w", chunkIndex, err)
 	}
 
+	log.Debug("multi-chunk improvement prompt", "prompt", prompt, "chunk_index", chunkIndex)
 	improvedTranslation, err := tf.llmProvider.Reasoning(ctx, prompt)
 	if err != nil {
+		log.Error(err, "failed to get multi-chunk improved translation", "chunk_index", chunkIndex)
 		return "", fmt.Errorf("failed to get final translation for chunk %d: %w", chunkIndex, err)
 	}
+	log.Debug("multi-chunk improvement result", "translation", improvedTranslation, "chunk_index", chunkIndex)
 	return improvedTranslation, nil
 }
 

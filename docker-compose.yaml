@@ -112,6 +112,11 @@ services:
       dockerfile: Dockerfile
     command: ["go", "run", "main.go", "worker"]
     environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_DOMAIN: ${MINIO_DOMAIN}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_PDF_BUCKET}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER}
@@ -198,6 +203,21 @@ services:
         limits:
           memory: 8G
 
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 networks:
   backend:
     driver: bridge
@@ -208,3 +228,4 @@ volumes:
   minio_data:
   postgres_data:
   rabbitmq_data:
+  ollama_data:

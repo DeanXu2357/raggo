@@ -21,8 +21,12 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill-amqp/pkg/amqp"
+
 	httpHdlr "raggo/handler/http"
 	"raggo/src/chunkctrl"
+	"raggo/src/jobctrl"
 	"raggo/src/resourcectrl"
 )
 
@@ -66,6 +70,23 @@ func RunServer(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+
+	// Initialize logger
+	logger := watermill.NewStdLogger(false, false)
+
+	// Initialize AMQP publisher
+	publisher, err := amqp.NewPublisher(
+		amqp.NewDurableQueueConfig(viper.GetString("amqp.url")),
+		logger,
+	)
+	if err != nil {
+		log.Fatalf("Failed to create publisher: %v", err)
+	}
+	defer publisher.Close()
+
+	// Initialize job repository and service
+	jobRepo := jobctrl.NewPostgresJobRepository(db)
+	jobService := jobctrl.NewJobService(publisher, jobRepo, logger, nil)
 
 	// Initialize services
 	resourceService, err := resourcectrl.NewResourceService(db)
@@ -119,10 +140,17 @@ func RunServer(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to initialize conversion handler: %v", err)
 	}
 
+	// Initialize translation handler
+	translationHandler, err := httpHdlr.NewTranslationHandler(jobService)
+	if err != nil {
+		log.Fatalf("Failed to initialize translation handler: %v", err)
+	}
+
 	// Register routes
 	r.GET("/pdfs", pdfHandler.List)
 	r.POST("/pdfs", pdfHandler.Upload)
 	r.POST("/conversion", conversionHandler.Convert)
+	r.POST("/translation", translationHandler.Translate)
 
 	// Create HTTP server
 	srv := &http.Server{

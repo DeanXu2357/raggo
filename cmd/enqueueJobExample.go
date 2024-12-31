@@ -75,7 +75,7 @@ func runEnqueueExample(cmd *cobra.Command, args []string) error {
 
 	// Initialize job repository and service
 	jobRepo := jobctrl.NewPostgresJobRepository(db)
-	jobService := jobctrl.NewJobService(publisher, jobRepo, logger)
+	jobService := jobctrl.NewJobService(publisher, jobRepo, logger, nil)
 
 	// Create test payload
 	payload := jobctrl.TestPayload{

@@ -24,5 +24,5 @@ RUN go mod download
 COPY . .
 
 # Command to run the executable
-# Warngin: In production, you should build the binary and run it instead of using go run.
+# Warning: In production, you should build the binary and run it instead of using go run.
 CMD ["go", "run", "main.go", "serve"]
