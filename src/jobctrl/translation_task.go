@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"raggo/src/chunkctrl"
+	"raggo/src/log"
 	"raggo/src/minioctrl"
 	"raggo/src/ollama"
 	"raggo/src/postgres/chunkctrl"
@@ -122,16 +122,22 @@ func (task *TranslationTask) HandleTranslationTask(ctx context.Context, payload 
 			return fmt.Errorf("failed to get chunk content: %w", err)
 		}
 
-		// Translate chunk
-		translatedContent, err := translationFlow.Translate(
+		// Try to translate chunk with retries
+		translatedContent, err := task.translateChunkWithRetry(
 			ctx,
+			translationFlow,
+			chunk,
 			string(chunkContent),
 			translationPayload.SourceLanguage,
 			translationPayload.TargetLanguage,
 			translationPayload.Country,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to translate chunk %s: %w", chunk.ChunkID, err)
+			// Log warning and continue with other chunks
+			log.Info("Failed to translate chunk after retries",
+				"chunk_id", chunk.ChunkID,
+				"error", err.Error())
+			continue
 		}
 
 		// Save translated chunk to minio
@@ -165,6 +171,39 @@ func (task *TranslationTask) HandleTranslationTask(ctx context.Context, payload 
 	}
 
 	return nil
+}
+
+func (task *TranslationTask) translateChunkWithRetry(
+	ctx context.Context,
+	translationFlow *translationflow.TranslationFlow,
+	chunk chunkctrl.Chunk,
+	content string,
+	sourceLanguage string,
+	targetLanguage string,
+	country string,
+) (string, error) {
+	maxRetries := 3
+	var lastErr error
+
+	for i := 0; i < maxRetries; i++ {
+		translatedContent, err := translationFlow.Translate(
+			ctx,
+			content,
+			sourceLanguage,
+			targetLanguage,
+			country,
+		)
+		if err == nil {
+			return translatedContent, nil
+		}
+		lastErr = err
+		log.Info("Translation attempt failed, retrying",
+			"chunk_id", chunk.ChunkID,
+			"attempt", i+1,
+			"error", err.Error())
+	}
+
+	return "", fmt.Errorf("failed after %d attempts: %w", maxRetries, lastErr)
 }
 
 func (task *TranslationTask) cleanupExistingTranslations(ctx context.Context, resourceID int64) error {
