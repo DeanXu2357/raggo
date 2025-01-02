@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 
-	"raggo/src/chunkctrl"
-	"raggo/src/resourcectrl"
+	"raggo/src/postgres/chunkctrl"
+	"raggo/src/postgres/resourcectrl"
 	"raggo/src/unstructuredctrl"
 )
 

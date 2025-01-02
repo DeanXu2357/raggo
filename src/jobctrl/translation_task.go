@@ -10,9 +10,10 @@ import (
 	"raggo/src/chunkctrl"
 	"raggo/src/minioctrl"
 	"raggo/src/ollama"
-	"raggo/src/resourcectrl"
-	"raggo/src/translatedchunkctrl"
-	"raggo/src/translatedresourcectrl"
+	"raggo/src/postgres/chunkctrl"
+	"raggo/src/postgres/resourcectrl"
+	"raggo/src/postgres/translatedchunkctrl"
+	"raggo/src/postgres/translatedresourcectrl"
 	"raggo/src/translationflow"
 )
 

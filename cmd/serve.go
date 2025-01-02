@@ -25,9 +25,9 @@ import (
 	"github.com/ThreeDotsLabs/watermill-amqp/pkg/amqp"
 
 	httpHdlr "raggo/handler/http"
-	"raggo/src/chunkctrl"
 	"raggo/src/jobctrl"
-	"raggo/src/resourcectrl"
+	"raggo/src/postgres/chunkctrl"
+	"raggo/src/postgres/resourcectrl"
 )
 
 // serveCmd represents the serve command

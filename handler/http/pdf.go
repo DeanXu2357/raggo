@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 
-	"raggo/src/resourcectrl"
+	"raggo/src/postgres/resourcectrl"
 )
 
 type PDFHandler struct {
