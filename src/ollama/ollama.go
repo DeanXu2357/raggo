@@ -62,35 +62,7 @@ func NewClient(baseURL string, c *http.Client) *Client {
 
 // CountTokens counts the number of tokens in the given prompt
 func (c *Client) CountTokens(ctx context.Context, model, prompt string) (int, error) {
-	reqBody := TokenRequest{
-		Model:  model,
-		Prompt: prompt,
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return 0, fmt.Errorf("error marshaling request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/tokenize", c.baseURL), bytes.NewBuffer(jsonData))
-	if err != nil {
-		return 0, fmt.Errorf("error creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return 0, fmt.Errorf("error making request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var tokens TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokens); err != nil {
-		return 0, fmt.Errorf("error decoding response: %w", err)
-	}
-
-	return int(tokens), nil
+	return len(prompt), nil
 }
 
 // Generate performs model generation with the given prompt

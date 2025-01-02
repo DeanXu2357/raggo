@@ -10,7 +10,7 @@ import (
 	"raggo/src/log"
 )
 
-const DefaultMaxTokenPerChunk = 1000
+const DefaultMaxTokenPerChunk = 96
 
 type LLMProvider interface {
 	TextSplit(ctx context.Context, text string, chunkSize, chunkOverLap int) ([]string, error)
