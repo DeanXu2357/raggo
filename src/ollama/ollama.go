@@ -35,11 +35,21 @@ type GenerateRequest struct {
 	Options map[string]interface{} `json:"options,omitempty"`
 }
 
+// ErrTruncated is returned when the response was truncated
+type ErrTruncated struct {
+	Message string
+}
+
+func (e *ErrTruncated) Error() string {
+	return e.Message
+}
+
 // GenerateResponse represents the response structure from generation
 type GenerateResponse struct {
-	Model    string `json:"model"`
-	Response string `json:"response"`
-	Done     bool   `json:"done"`
+	Model     string `json:"model"`
+	Response  string `json:"response"`
+	Done      bool   `json:"done"`
+	Truncated bool   `json:"truncated,omitempty"`
 }
 
 // Client represents an Ollama API client
@@ -135,6 +145,11 @@ func (c *Client) Generate(ctx context.Context, model, system, prompt string, opt
 
 		//log.Debug("received response chunk", "response", response.Response, "done", response.Done)
 		fullResponse.WriteString(response.Response)
+
+		if response.Truncated {
+			log.Error(fmt.Errorf("response was truncated by the model"), "response was truncated by the model")
+			return "", &ErrTruncated{Message: "Response was truncated by the model"}
+		}
 
 		if response.Done {
 			lastResponse = fullResponse.String()

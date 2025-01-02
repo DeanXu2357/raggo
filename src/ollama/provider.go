@@ -34,6 +34,7 @@ func (o *OllamaProvider) Reasoning(ctx context.Context, system string, prompt st
 	return o.ollamaClient.Generate(ctx, o.modelName, system, prompt, map[string]interface{}{
 		"temperature": 0.7,
 		"top_p":       0.9,
+		"num_ctx":     8192,
 	})
 }
 
