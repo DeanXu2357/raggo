@@ -4,6 +4,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -11,7 +12,9 @@ var (
 )
 
 func init() {
-	zapLog, err := zap.NewDevelopment()
+	config := zap.NewDevelopmentConfig()
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	zapLog, err := config.Build()
 	if err != nil {
 		panic(err)
 	}
