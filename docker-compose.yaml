@@ -201,7 +201,8 @@ services:
   ollama:
     image: ollama/ollama
     volumes:
-      - ollama_data:/root/.ollama
+#      - ollama_data:/root/.ollama
+      - /usr/share/ollama/.ollama:/root/.ollama:ro
     networks:
       - backend
     restart: unless-stopped
