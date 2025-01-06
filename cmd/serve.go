@@ -26,7 +26,11 @@ import (
 
 	httpHdlr "raggo/handler/http"
 	"raggo/src/jobctrl"
+	"raggo/src/knowledgebasectrl"
+	"raggo/src/minioctrl"
+	"raggo/src/ollama"
 	"raggo/src/postgres/chunkctrl"
+	pgKnowledgeBase "raggo/src/postgres/knowledgebasectrl"
 	"raggo/src/postgres/resourcectrl"
 )
 
@@ -146,11 +150,50 @@ func RunServer(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to initialize translation handler: %v", err)
 	}
 
+	// Initialize MinIO service
+	minioService, err := minioctrl.NewMinioService(
+		viper.GetString("minio.endpoint"),
+		viper.GetString("minio.access_key"),
+		viper.GetString("minio.secret_key"),
+		false,
+	)
+	if err != nil {
+		log.Fatalf("Failed to create MinIO service: %v", err)
+	}
+
+	// Initialize Ollama client
+	ollamaClient := ollama.NewClient(viper.GetString("ollama.url"), &http.Client{
+		Timeout: 30 * time.Second,
+	})
+
+	// Initialize knowledge base service and handler
+	knowledgeBaseRepo := pgKnowledgeBase.NewRepository(db)
+	// Initialize knowledge base service without weaviate client for now
+	knowledgeBaseService, err := knowledgebasectrl.NewService(
+		knowledgeBaseRepo,
+		nil, // Weaviate client will be added later when implementing RAG
+		ollamaClient,
+		minioService,
+	)
+	if err != nil {
+		log.Fatalf("Failed to create knowledge base service: %v", err)
+	}
+	knowledgeBaseHandler, err := httpHdlr.NewKnowledgeBaseHandler(knowledgeBaseService)
+	if err != nil {
+		log.Fatalf("Failed to initialize knowledge base handler: %v", err)
+	}
+
 	// Register routes
 	r.GET("/pdfs", pdfHandler.List)
 	r.POST("/pdfs", pdfHandler.Upload)
 	r.POST("/conversion", conversionHandler.Convert)
 	r.POST("/translation", translationHandler.Translate)
+
+	// Knowledge base routes
+	r.GET("/api/v1/knowledge-bases", knowledgeBaseHandler.ListKnowledgeBases)
+	r.GET("/api/v1/knowledge-bases/:id/resources", knowledgeBaseHandler.ListKnowledgeBaseResources)
+	r.POST("/api/v1/knowledge-bases/:id/query", knowledgeBaseHandler.QueryKnowledgeBase)
+	r.POST("/api/v1/knowledge-bases/:id/resources", knowledgeBaseHandler.AddResourceToKnowledgeBase)
 
 	// Create HTTP server
 	srv := &http.Server{
