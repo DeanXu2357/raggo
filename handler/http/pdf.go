@@ -3,39 +3,32 @@ package http
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/minio/minio-go/v7"
-
+	"raggo/src/minioctrl"
 	"raggo/src/postgres/resourcectrl"
 )
 
 type PDFHandler struct {
-	minioClient     *minio.Client
+	minioService    *minioctrl.MinioService
 	bucketName      string
 	minioDomain     string
 	resourceService *resourcectrl.ResourceService
 }
 
-func NewPDFHandler(minioClient *minio.Client, bucketName string, minioDomain string, resourceService *resourcectrl.ResourceService) (*PDFHandler, error) {
+func NewPDFHandler(minioService *minioctrl.MinioService, bucketName string, minioDomain string, resourceService *resourcectrl.ResourceService) (*PDFHandler, error) {
 	// Ensure bucket exists
-	exists, err := minioClient.BucketExists(context.Background(), bucketName)
+	err := minioService.EnsureBucketExists(context.Background(), bucketName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check bucket existence: %v", err)
-	}
-
-	if !exists {
-		err = minioClient.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create bucket: %v", err)
-		}
+		return nil, fmt.Errorf("failed to ensure bucket exists: %v", err)
 	}
 
 	return &PDFHandler{
-		minioClient:     minioClient,
+		minioService:    minioService,
 		bucketName:      bucketName,
 		minioDomain:     minioDomain,
 		resourceService: resourceService,
@@ -96,14 +89,19 @@ func (h *PDFHandler) Upload(c *gin.Context) {
 	id := uuid.New().String()
 	objectName := fmt.Sprintf("%s.pdf", id)
 
+	// Read file into buffer
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
+		return
+	}
+
 	// Upload to MinIO
-	_, err = h.minioClient.PutObject(
+	err = h.minioService.PutObject(
 		context.Background(),
 		h.bucketName,
 		objectName,
-		file,
-		header.Size,
-		minio.PutObjectOptions{ContentType: "application/pdf"},
+		fileBytes,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload file"})

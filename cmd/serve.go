@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
@@ -103,22 +101,20 @@ func RunServer(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to create resource service: %v", err)
 	}
 
-	// Initialize MinIO client with config from viper
-	minioClient, err := minio.New(viper.GetString("minio.endpoint"), &minio.Options{
-		Creds: credentials.NewStaticV4(
-			viper.GetString("minio.access_key"),
-			viper.GetString("minio.secret_key"),
-			"",
-		),
-		Secure: false,
-	})
+	// Initialize MinIO service
+	minioService, err := minioctrl.NewMinioService(
+		viper.GetString("minio.endpoint"),
+		viper.GetString("minio.access_key"),
+		viper.GetString("minio.secret_key"),
+		false,
+	)
 	if err != nil {
-		log.Fatalf("Failed to create MinIO client: %v", err)
+		log.Fatalf("Failed to create MinIO service: %v", err)
 	}
 
 	// Initialize handlers
 	pdfHandler, err := httpHdlr.NewPDFHandler(
-		minioClient,
+		minioService,
 		viper.GetString("minio.pdf_bucket"),
 		viper.GetString("minio.domain"),
 		resourceService,
@@ -132,7 +128,7 @@ func RunServer(cmd *cobra.Command, args []string) {
 
 	// Initialize conversion handler
 	conversionHandler, err := httpHdlr.NewConversionHandler(
-		minioClient,
+		minioService,
 		viper.GetString("minio.pdf_bucket"),
 		viper.GetString("minio.chunk_bucket"),
 		viper.GetString("minio.domain"),
@@ -146,17 +142,6 @@ func RunServer(cmd *cobra.Command, args []string) {
 
 	// Initialize translation handler
 	translationHandler, err := httpHdlr.NewTranslationHandler(jobService)
-	if err != nil {
-		log.Fatalf("Failed to initialize translation handler: %v", err)
-	}
-
-	// Initialize MinIO service
-	minioService, err := minioctrl.NewMinioService(
-		viper.GetString("minio.endpoint"),
-		viper.GetString("minio.access_key"),
-		viper.GetString("minio.secret_key"),
-		false,
-	)
 	if err != nil {
 		log.Fatalf("Failed to create MinIO service: %v", err)
 	}

@@ -3,22 +3,20 @@ package http
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/minio/minio-go/v7"
-
+	"raggo/src/minioctrl"
 	"raggo/src/postgres/chunkctrl"
 	"raggo/src/postgres/resourcectrl"
 	"raggo/src/unstructuredctrl"
 )
 
 type ConversionHandler struct {
-	minioClient         *minio.Client
+	minioService        *minioctrl.MinioService
 	resourceBucket      string
 	chunkBucket         string
 	minioDomain         string
@@ -28,7 +26,7 @@ type ConversionHandler struct {
 }
 
 func NewConversionHandler(
-	minioClient *minio.Client,
+	minioService *minioctrl.MinioService,
 	resourceBucket string,
 	chunkBucket string,
 	minioDomain string,
@@ -37,22 +35,15 @@ func NewConversionHandler(
 	chunkService *chunkctrl.ChunkService,
 ) (*ConversionHandler, error) {
 	// Ensure chunk bucket exists
-	exists, err := minioClient.BucketExists(context.Background(), chunkBucket)
+	err := minioService.EnsureBucketExists(context.Background(), chunkBucket)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check bucket existence: %v", err)
-	}
-
-	if !exists {
-		err = minioClient.MakeBucket(context.Background(), chunkBucket, minio.MakeBucketOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create bucket: %v", err)
-		}
+		return nil, fmt.Errorf("failed to ensure bucket exists: %v", err)
 	}
 
 	unstructuredService := unstructuredctrl.NewUnstructuredService(unstructuredURL)
 
 	return &ConversionHandler{
-		minioClient:         minioClient,
+		minioService:        minioService,
 		resourceBucket:      resourceBucket,
 		chunkBucket:         chunkBucket,
 		minioDomain:         minioDomain,
@@ -107,7 +98,7 @@ func (h *ConversionHandler) Convert(c *gin.Context) {
 				log.Printf("Invalid MinIO URL format for chunk: %s", chunk.MinioURL)
 				continue
 			}
-			err = h.minioClient.RemoveObject(c.Request.Context(), parts[0], parts[1], minio.RemoveObjectOptions{})
+			err = h.minioService.DeleteObject(c.Request.Context(), parts[0], parts[1])
 			if err != nil {
 				log.Printf("Failed to delete chunk from MinIO: %v", err)
 			}
@@ -130,15 +121,7 @@ func (h *ConversionHandler) Convert(c *gin.Context) {
 	objectName := parts[1]
 
 	// Get file from MinIO
-	obj, err := h.minioClient.GetObject(c.Request.Context(), h.resourceBucket, objectName, minio.GetObjectOptions{})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get file from storage"})
-		return
-	}
-	defer obj.Close()
-
-	// Read file into buffer
-	fileBytes, err := io.ReadAll(obj)
+	fileBytes, err := h.minioService.GetObject(c.Request.Context(), h.resourceBucket, objectName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
 		return
@@ -164,13 +147,11 @@ func (h *ConversionHandler) Convert(c *gin.Context) {
 		chunkName := fmt.Sprintf("%s_%s.txt", strings.TrimSuffix(filepath.Base(resource.Filename), filepath.Ext(resource.Filename)), chunkID)
 
 		// Upload chunk to MinIO
-		_, err = h.minioClient.PutObject(
+		err = h.minioService.PutObject(
 			c.Request.Context(),
 			h.chunkBucket,
 			chunkName,
-			strings.NewReader(element.Text),
-			int64(len(element.Text)),
-			minio.PutObjectOptions{ContentType: "text/plain"},
+			[]byte(element.Text),
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store chunk"})
