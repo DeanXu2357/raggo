@@ -127,3 +127,23 @@ func (r *Repository) AddResource(ctx context.Context, resource *kb.KnowledgeBase
 
 	return nil
 }
+
+func (r *Repository) GetKnowledgeBase(ctx context.Context, id int64) (*kb.KnowledgeBase, error) {
+	var base KnowledgeBase
+	result := r.db.WithContext(ctx).First(&base, id)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get knowledge base: %v", result.Error)
+	}
+
+	return &kb.KnowledgeBase{
+		ID:             base.ID,
+		Name:           base.Name,
+		Description:    base.Description,
+		EmbeddingModel: base.EmbeddingModel,
+		CreatedAt:      base.CreatedAt,
+		UpdatedAt:      base.UpdatedAt,
+	}, nil
+}

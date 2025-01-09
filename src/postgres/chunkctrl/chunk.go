@@ -14,6 +14,7 @@ type Chunk struct {
 	ResourceID int64     `gorm:"not null" json:"resource_id"`
 	ChunkID    string    `gorm:"not null" json:"chunk_id"`
 	MinioURL   string    `gorm:"not null;column:minio_url" json:"minio_url"` // bucket name + object name
+	Order      int       `gorm:"not null;column:chunk_order" json:"order"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
@@ -36,12 +37,13 @@ func NewChunkService(db *gorm.DB) (*ChunkService, error) {
 	}, nil
 }
 
-func (s *ChunkService) Create(ctx context.Context, resourceID int64, chunkID string, minioURL string) (*Chunk, error) {
+func (s *ChunkService) Create(ctx context.Context, resourceID int64, chunkID string, minioURL string, order int) (*Chunk, error) {
 	chunk := &Chunk{
 		ID:         s.snowflake.Generate().Int64(),
 		ResourceID: resourceID,
 		ChunkID:    chunkID,
 		MinioURL:   minioURL,
+		Order:      order,
 	}
 
 	result := s.db.WithContext(ctx).Create(chunk)
@@ -67,4 +69,16 @@ func (s *ChunkService) DeleteByResourceID(ctx context.Context, resourceID int64)
 		return fmt.Errorf("failed to delete chunks: %v", result.Error)
 	}
 	return nil
+}
+
+func (s *ChunkService) GetByID(ctx context.Context, id int64) (*Chunk, error) {
+	var chunk Chunk
+	result := s.db.WithContext(ctx).First(&chunk, id)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get chunk: %v", result.Error)
+	}
+	return &chunk, nil
 }

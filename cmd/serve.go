@@ -21,6 +21,7 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-amqp/pkg/amqp"
+	weaviateClient "github.com/weaviate/weaviate-go-client/v4/weaviate"
 
 	httpHdlr "raggo/handler/http"
 	"raggo/src/jobctrl"
@@ -30,6 +31,7 @@ import (
 	"raggo/src/postgres/chunkctrl"
 	pgKnowledgeBase "raggo/src/postgres/knowledgebasectrl"
 	"raggo/src/postgres/resourcectrl"
+	
 )
 
 // serveCmd represents the serve command
@@ -54,18 +56,6 @@ func RunServer(cmd *cobra.Command, args []string) {
 	dbname := viper.GetString("postgres.db")
 	port := viper.GetString("postgres.port")
 
-	log.Printf("Environment variables:")
-	log.Printf("POSTGRES_HOST: %s", os.Getenv("POSTGRES_HOST"))
-	log.Printf("POSTGRES_PORT: %s", os.Getenv("POSTGRES_PORT"))
-	log.Printf("POSTGRES_USER: %s", os.Getenv("POSTGRES_USER"))
-	log.Printf("POSTGRES_DB: %s", os.Getenv("POSTGRES_DB"))
-
-	log.Printf("Viper configuration:")
-	log.Printf("postgres.host: %s", viper.GetString("postgres.host"))
-	log.Printf("postgres.port: %s", viper.GetString("postgres.port"))
-	log.Printf("postgres.user: %s", viper.GetString("postgres.user"))
-	log.Printf("postgres.db: %s", viper.GetString("postgres.db"))
-
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
 		host, user, password, dbname, port)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -73,7 +63,6 @@ func RunServer(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Initialize logger
 	logger := watermill.NewStdLogger(false, false)
 
 	// Initialize AMQP publisher
@@ -147,18 +136,25 @@ func RunServer(cmd *cobra.Command, args []string) {
 	}
 
 	// Initialize Ollama client
-	ollamaClient := ollama.NewClient(viper.GetString("ollama.url"), &http.Client{
+	oc := ollama.NewClient(viper.GetString("ollama.url"), &http.Client{
 		Timeout: 30 * time.Second,
 	})
 
+	// Initialize Weaviate SDK
+	wc := weaviateClient.New(weaviateClient.Config{
+		Host: viper.GetString("weaviate.url"),
+	})
+	wsdk := weaviate.NewSDK(wc)
+
 	// Initialize knowledge base service and handler
 	knowledgeBaseRepo := pgKnowledgeBase.NewRepository(db)
-	// Initialize knowledge base service without weaviate client for now
 	knowledgeBaseService, err := knowledgebasectrl.NewService(
 		knowledgeBaseRepo,
-		nil, // Weaviate client will be added later when implementing RAG
-		ollamaClient,
+		wsdk,
+		oc,
 		minioService,
+		resourceService,
+		chunkService,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create knowledge base service: %v", err)

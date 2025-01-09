@@ -17,6 +17,17 @@ const (
 	DefaultURL = "http://localhost:11434/api"
 )
 
+// EmbeddingRequest represents the request structure for embeddings
+type EmbeddingRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+}
+
+// EmbeddingResponse represents the response structure from embeddings
+type EmbeddingResponse struct {
+	Embedding []float64 `json:"embedding"`
+}
+
 // TokenRequest represents the request structure for token counting
 type TokenRequest struct {
 	Model  string `json:"model"`
@@ -73,6 +84,57 @@ func NewClient(baseURL string, c *http.Client) *Client {
 // CountTokens counts the number of tokens in the given prompt
 func (c *Client) CountTokens(ctx context.Context, model, prompt string) (int, error) {
 	return len(prompt), nil
+}
+
+// GetEmbedding generates an embedding vector for the given text using the specified model
+func (c *Client) GetEmbedding(ctx context.Context, model string, text string) ([]float32, error) {
+	reqBody := EmbeddingRequest{
+		Model:  model,
+		Prompt: text,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/embeddings", c.baseURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result EmbeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("error decoding response: %w", err)
+	}
+
+	// Convert float64 to float32
+	embedding32 := make([]float32, len(result.Embedding))
+	for i, v := range result.Embedding {
+		embedding32[i] = float32(v)
+	}
+
+	return embedding32, nil
+}
+
+// GenerateContextDescription generates a concise description of the given text content
+func (c *Client) GenerateContextDescription(ctx context.Context, text string) (string, error) {
+	system := "You are a text summarizer. Generate a brief, informative description of the given text content."
+	description, err := c.Generate(ctx, "llama2", system, text, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate context description: %w", err)
+	}
+
+	return description, nil
 }
 
 // Generate performs model generation with the given prompt

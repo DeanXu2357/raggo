@@ -164,6 +164,7 @@ func (h *ConversionHandler) Convert(c *gin.Context) {
 			resource.ID,
 			chunkID,
 			fmt.Sprintf("%s/%s", h.chunkBucket, chunkName),
+			i+1, // Use the loop index + 1 as the order
 		)
 		if err != nil {
 			log.Printf("Failed to record chunk: %v", err)
