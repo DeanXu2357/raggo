@@ -1,4 +1,4 @@
-package jobctrl
+package job
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 	"strconv"
 	"strings"
 
-	"raggo/src/log"
-	"raggo/src/minioctrl"
-	"raggo/src/ollama"
-	"raggo/src/postgres/chunkctrl"
-	"raggo/src/postgres/resourcectrl"
-	"raggo/src/postgres/translatedchunkctrl"
-	"raggo/src/postgres/translatedresourcectrl"
-	"raggo/src/translationflow"
+	"raggo/src/core/translationflow"
+	"raggo/src/infrastructure/integrations/ollama"
+	"raggo/src/infrastructure/log"
+	"raggo/src/storage/minioctrl"
+	"raggo/src/storage/postgres/chunkctrl"
+	"raggo/src/storage/postgres/resourcectrl"
+	"raggo/src/storage/postgres/translatedchunkctrl"
+	"raggo/src/storage/postgres/translatedresourcectrl"
 )
 
 const TaskTypeTranslation = "translation"

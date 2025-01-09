@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	kb "raggo/src/knowledgebasectrl"
+	kb "raggo/src/core/knowledgebase"
 )
 
 type KnowledgeBase struct {

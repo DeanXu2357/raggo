@@ -12,11 +12,11 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"raggo/src/minioctrl"
-	"raggo/src/ollama"
-	"raggo/src/postgres/chunkctrl"
-	"raggo/src/postgres/resourcectrl"
-	"raggo/src/translationflow"
+	"raggo/src/core/translationflow"
+	"raggo/src/infrastructure/integrations/ollama"
+	"raggo/src/storage/minioctrl"
+	"raggo/src/storage/postgres/chunkctrl"
+	"raggo/src/storage/postgres/resourcectrl"
 )
 
 var (

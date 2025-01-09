@@ -21,13 +21,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"raggo/src/jobctrl"
-	"raggo/src/minioctrl"
-	"raggo/src/ollama"
-	"raggo/src/postgres/chunkctrl"
-	"raggo/src/postgres/resourcectrl"
-	"raggo/src/postgres/translatedchunkctrl"
-	"raggo/src/postgres/translatedresourcectrl"
+	"raggo/src/infrastructure/integrations/ollama"
+	jobctrl "raggo/src/infrastructure/job"
+	"raggo/src/storage/minioctrl"
+	"raggo/src/storage/postgres/chunkctrl"
+	"raggo/src/storage/postgres/resourcectrl"
+	"raggo/src/storage/postgres/translatedchunkctrl"
+	"raggo/src/storage/postgres/translatedresourcectrl"
 )
 
 var workerCmd = &cobra.Command{

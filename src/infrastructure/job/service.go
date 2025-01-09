@@ -1,4 +1,4 @@
-package jobctrl
+package job
 
 import (
 	"context"

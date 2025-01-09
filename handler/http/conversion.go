@@ -9,10 +9,11 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"raggo/src/minioctrl"
-	"raggo/src/postgres/chunkctrl"
-	"raggo/src/postgres/resourcectrl"
-	"raggo/src/unstructuredctrl"
+
+	"raggo/src/infrastructure/integrations/unstructured"
+	"raggo/src/storage/minioctrl"
+	"raggo/src/storage/postgres/chunkctrl"
+	"raggo/src/storage/postgres/resourcectrl"
 )
 
 type ConversionHandler struct {
@@ -22,7 +23,7 @@ type ConversionHandler struct {
 	minioDomain         string
 	resourceService     *resourcectrl.ResourceService
 	chunkService        *chunkctrl.ChunkService
-	unstructuredService *unstructuredctrl.UnstructuredService
+	unstructuredService *unstructured.UnstructuredService
 }
 
 func NewConversionHandler(
@@ -40,7 +41,7 @@ func NewConversionHandler(
 		return nil, fmt.Errorf("failed to ensure bucket exists: %v", err)
 	}
 
-	unstructuredService := unstructuredctrl.NewUnstructuredService(unstructuredURL)
+	unstructuredService := unstructured.NewUnstructuredService(unstructuredURL)
 
 	return &ConversionHandler{
 		minioService:        minioService,

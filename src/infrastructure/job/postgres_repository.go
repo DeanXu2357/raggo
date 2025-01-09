@@ -1,9 +1,10 @@
-package jobctrl
+package job
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"gorm.io/gorm"
 )
 

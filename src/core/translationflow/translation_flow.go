@@ -8,7 +8,7 @@ import (
 	"text/template"
 	"time"
 
-	"raggo/src/log"
+	"raggo/src/infrastructure/log"
 )
 
 const (

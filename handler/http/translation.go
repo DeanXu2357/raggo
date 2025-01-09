@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"raggo/src/jobctrl"
+	jobctrl "raggo/src/infrastructure/job"
 )
 
 type TranslationRequest struct {

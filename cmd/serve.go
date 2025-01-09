@@ -24,14 +24,14 @@ import (
 	weaviateClient "github.com/weaviate/weaviate-go-client/v4/weaviate"
 
 	httpHdlr "raggo/handler/http"
-	"raggo/src/jobctrl"
-	"raggo/src/knowledgebasectrl"
-	"raggo/src/minioctrl"
-	"raggo/src/ollama"
-	"raggo/src/postgres/chunkctrl"
-	pgKnowledgeBase "raggo/src/postgres/knowledgebasectrl"
-	"raggo/src/postgres/resourcectrl"
-	
+	"raggo/src/core/knowledgebase"
+	"raggo/src/infrastructure/integrations/ollama"
+	jobctrl "raggo/src/infrastructure/job"
+	"raggo/src/storage/minioctrl"
+	"raggo/src/storage/postgres/chunkctrl"
+	pgKnowledgeBase "raggo/src/storage/postgres/knowledgebasectrl"
+	"raggo/src/storage/postgres/resourcectrl"
+	"raggo/src/storage/weaviate"
 )
 
 // serveCmd represents the serve command
@@ -148,7 +148,7 @@ func RunServer(cmd *cobra.Command, args []string) {
 
 	// Initialize knowledge base service and handler
 	knowledgeBaseRepo := pgKnowledgeBase.NewRepository(db)
-	knowledgeBaseService, err := knowledgebasectrl.NewService(
+	knowledgeBaseService, err := knowledgebase.NewService(
 		knowledgeBaseRepo,
 		wsdk,
 		oc,

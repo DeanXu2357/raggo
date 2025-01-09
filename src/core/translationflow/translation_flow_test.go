@@ -3,7 +3,7 @@ package translationflow_test
 import (
 	"testing"
 
-	"raggo/src/translationflow"
+	"raggo/src/core/translationflow"
 )
 
 func TestExecuteTemplatesForTest(t *testing.T) {

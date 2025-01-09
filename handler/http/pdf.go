@@ -9,8 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"raggo/src/minioctrl"
-	"raggo/src/postgres/resourcectrl"
+
+	"raggo/src/storage/minioctrl"
+	"raggo/src/storage/postgres/resourcectrl"
 )
 
 type PDFHandler struct {

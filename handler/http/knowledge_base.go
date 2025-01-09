@@ -6,14 +6,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"raggo/src/knowledgebasectrl"
+	"raggo/src/core/knowledgebase"
 )
 
 type KnowledgeBaseHandler struct {
-	service *knowledgebasectrl.Service
+	service *knowledgebase.Service
 }
 
-func NewKnowledgeBaseHandler(service *knowledgebasectrl.Service) (*KnowledgeBaseHandler, error) {
+func NewKnowledgeBaseHandler(service *knowledgebase.Service) (*KnowledgeBaseHandler, error) {
 	return &KnowledgeBaseHandler{
 		service: service,
 	}, nil

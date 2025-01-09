@@ -1,4 +1,4 @@
-package knowledgebasectrl
+package knowledgebase
 
 import (
 	"strings"

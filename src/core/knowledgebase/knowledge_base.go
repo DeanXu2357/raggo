@@ -1,4 +1,4 @@
-package knowledgebasectrl
+package knowledgebase
 
 import (
 	"context"
@@ -9,11 +9,11 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"github.com/weaviate/weaviate/entities/models"
 
-	"raggo/src/minioctrl"
-	"raggo/src/ollama"
-	"raggo/src/postgres/chunkctrl"
-	"raggo/src/postgres/resourcectrl"
-	"raggo/src/weaviate"
+	"raggo/src/infrastructure/integrations/ollama"
+	"raggo/src/storage/minioctrl"
+	"raggo/src/storage/postgres/chunkctrl"
+	"raggo/src/storage/postgres/resourcectrl"
+	"raggo/src/storage/weaviate"
 )
 
 type KnowledgeBase struct {
