@@ -19,14 +19,23 @@ type KnowledgeBase struct {
 	UpdatedAt      time.Time
 }
 
+func (KnowledgeBase) TableName() string {
+	return "knowledge_bases"
+}
+
 type KnowledgeBaseResource struct {
 	ID                 int64  `gorm:"primaryKey"`
 	KnowledgeBaseID    int64  `gorm:"not null"`
 	ChunkID            int64  `gorm:"not null"`
+	ResourceID         int64  `gorm:"not null"`
 	Title              string `gorm:"not null"`
 	ContextDescription string
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+}
+
+func (KnowledgeBaseResource) TableName() string {
+	return "knowledge_base_resources"
 }
 
 type Repository struct {
@@ -115,6 +124,7 @@ func (r *Repository) AddResource(ctx context.Context, resource *kb.KnowledgeBase
 	dbResource := KnowledgeBaseResource{
 		ID:                 resource.ID,
 		KnowledgeBaseID:    resource.KnowledgeBaseID,
+		ResourceID:         resource.ResourceID,
 		ChunkID:            resource.ChunkID,
 		Title:              resource.Title,
 		ContextDescription: resource.ContextDescription,

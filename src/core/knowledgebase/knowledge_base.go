@@ -10,6 +10,7 @@ import (
 	"github.com/weaviate/weaviate/entities/models"
 
 	"raggo/src/infrastructure/integrations/ollama"
+	"raggo/src/infrastructure/log"
 	"raggo/src/storage/minioctrl"
 	"raggo/src/storage/postgres/chunkctrl"
 	"raggo/src/storage/postgres/resourcectrl"
@@ -296,8 +297,14 @@ func (s *Service) QueryKnowledgeBase(ctx context.Context, knowledgeBaseID int64,
 	// Get chunk content from MinIO for each result
 	var queryResults []QueryResult
 	for _, result := range results {
+		if result.Properties["chunkId"] == nil {
+			continue
+		}
 		chunkID := int64(result.Properties["chunkId"].(float64))
-		description := result.Properties["description"].(string)
+		var description string
+		if result.Properties["description"] != nil {
+			description = result.Properties["description"].(string)
+		}
 
 		chunk, err := s.chunkService.GetByID(ctx, chunkID)
 		if err != nil {
@@ -330,3 +337,20 @@ func (s *Service) QueryKnowledgeBase(ctx context.Context, knowledgeBaseID int64,
 
 	return queryResults, nil
 }
+
+const (
+	DOCUMENT_CONTEXT_PROMPT = `
+<document>
+{doc_content}
+</document>
+`
+	CHUNK_CONTEXT_PROMPT = `
+Here is the chunk we want to situate within the whole document
+<chunk>
+{chunk_content}
+</chunk>
+
+Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk.
+Answer only with the succinct context and nothing else.
+`
+)

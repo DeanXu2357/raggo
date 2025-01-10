@@ -126,17 +126,6 @@ func (c *Client) GetEmbedding(ctx context.Context, model string, text string) ([
 	return embedding32, nil
 }
 
-// GenerateContextDescription generates a concise description of the given text content
-func (c *Client) GenerateContextDescription(ctx context.Context, text string) (string, error) {
-	system := "You are a text summarizer. Generate a brief, informative description of the given text content."
-	description, err := c.Generate(ctx, "llama2", system, text, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate context description: %w", err)
-	}
-
-	return description, nil
-}
-
 // Generate performs model generation with the given prompt
 func (c *Client) Generate(ctx context.Context, model, system, prompt string, options map[string]interface{}) (string, error) {
 	reqBody := GenerateRequest{
