@@ -225,6 +225,38 @@ type QueryResult struct {
 	MinioURL    string  `json:"minio_url"`
 }
 
+// ResetWeaviateContent deletes and recreates the Weaviate schema for a knowledge base
+func (s *Service) ResetWeaviateContent(ctx context.Context, knowledgeBaseID int64) error {
+	if s.weaviateSDK == nil {
+		return fmt.Errorf("weaviate is not configured")
+	}
+
+	// Get knowledge base to verify it exists
+	kb, err := s.postgresRepo.GetKnowledgeBase(ctx, knowledgeBaseID)
+	if err != nil {
+		return fmt.Errorf("failed to get knowledge base: %v", err)
+	}
+	if kb == nil {
+		return fmt.Errorf("knowledge base not found: %d", knowledgeBaseID)
+	}
+
+	className := getWeaviateClassName(knowledgeBaseID)
+
+	// Delete existing schema if it exists
+	err = s.weaviateSDK.DeleteSchema(ctx, className)
+	if err != nil {
+		return fmt.Errorf("failed to delete Weaviate schema: %v", err)
+	}
+
+	// Recreate schema
+	err = s.ensureWeaviateSchema(ctx, className)
+	if err != nil {
+		return fmt.Errorf("failed to recreate Weaviate schema: %v", err)
+	}
+
+	return nil
+}
+
 // QueryKnowledgeBase implements the RAG query logic
 func (s *Service) QueryKnowledgeBase(ctx context.Context, knowledgeBaseID int64, query string) ([]QueryResult, error) {
 	if s.weaviateSDK == nil {

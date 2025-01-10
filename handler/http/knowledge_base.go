@@ -109,6 +109,23 @@ func (h *KnowledgeBaseHandler) AddResourceToKnowledgeBase(c *gin.Context) {
 	c.Status(http.StatusCreated)
 }
 
+// ResetWeaviateContent handles POST /api/v1/knowledge-bases/:id/reset-weaviate
+func (h *KnowledgeBaseHandler) ResetWeaviateContent(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid knowledge base ID"})
+		return
+	}
+
+	err = h.service.ResetWeaviateContent(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
 func getPaginationParams(c *gin.Context) (offset, limit int) {
 	offset, _ = strconv.Atoi(c.Query("offset"))
 	limit, _ = strconv.Atoi(c.Query("limit"))

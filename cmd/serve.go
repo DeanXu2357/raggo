@@ -176,6 +176,7 @@ func RunServer(cmd *cobra.Command, args []string) {
 	r.GET("/api/v1/knowledge-bases/:id/resources", knowledgeBaseHandler.ListKnowledgeBaseResources)
 	r.POST("/api/v1/knowledge-bases/:id/query", knowledgeBaseHandler.QueryKnowledgeBase)
 	r.POST("/api/v1/knowledge-bases/:id/resources", knowledgeBaseHandler.AddResourceToKnowledgeBase)
+	r.POST("/api/v1/knowledge-bases/:id/reset-weaviate", knowledgeBaseHandler.ResetWeaviateContent)
 
 	// Create HTTP server
 	srv := &http.Server{
