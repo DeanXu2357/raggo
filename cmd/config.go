@@ -49,4 +49,10 @@ func settingDefaultConfig() {
 	viper.SetDefault("unstructured.url", "http://unstructured_api:8000")
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.shutdown_timeout", "5s")
+
+	viper.BindEnv("weaviate.url", "WEAVIATE_URL")
+	viper.SetDefault("weaviate.url", "http://weaviate:8080")
+
+	viper.BindEnv("ollama.url", "OLLAMA_URL")
+	viper.SetDefault("ollama.url", "http://ollama:11434/api")
 }

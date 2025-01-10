@@ -142,7 +142,8 @@ func RunServer(cmd *cobra.Command, args []string) {
 
 	// Initialize Weaviate SDK
 	wc := weaviateClient.New(weaviateClient.Config{
-		Host: viper.GetString("weaviate.url"),
+		Host:   viper.GetString("weaviate.url"),
+		Scheme: "http",
 	})
 	wsdk := weaviate.NewSDK(wc)
 

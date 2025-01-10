@@ -136,25 +136,18 @@ func (s *Service) AddResourceToKnowledgeBase(ctx context.Context, knowledgeBaseI
 			return fmt.Errorf("failed to get chunk content: %v", err)
 		}
 
-		// Generate embeddings and context description using Ollama
 		embedding, err := s.ollamaClient.GetEmbedding(ctx, kb.EmbeddingModel, string(content))
 		if err != nil {
 			return fmt.Errorf("failed to generate embedding: %v", err)
 		}
 
-		description, err := s.ollamaClient.GenerateContextDescription(ctx, string(content))
-		if err != nil {
-			return fmt.Errorf("failed to generate context description: %v", err)
-		}
-
 		// Create knowledge base resource
 		kbResource := &KnowledgeBaseResource{
-			ID:                 s.snowflake.Generate().Int64(),
-			KnowledgeBaseID:    knowledgeBaseID,
-			ResourceID:         resourceID,
-			ChunkID:            chunk.ID,
-			Title:              fmt.Sprintf("%s - Part %d", resource.Filename, chunk.Order),
-			ContextDescription: description,
+			ID:              s.snowflake.Generate().Int64(),
+			KnowledgeBaseID: knowledgeBaseID,
+			ResourceID:      resourceID,
+			ChunkID:         chunk.ID,
+			Title:           fmt.Sprintf("%s - Part %d", resource.Filename, chunk.Order), // TODO: chunks table add order column
 		}
 
 		// Store in PostgreSQL
@@ -178,6 +171,8 @@ func (s *Service) AddResourceToKnowledgeBase(ctx context.Context, knowledgeBaseI
 				Vector:     embedding,
 				Properties: props,
 			}
+
+			log.Info(fmt.Sprintf("Adding vector to Weaviate: %v", vectorObj))
 
 			if err = s.weaviateSDK.AddVector(ctx, className, vectorObj); err != nil {
 				return fmt.Errorf("failed to store vector: %v", err)
@@ -263,6 +258,8 @@ func (s *Service) QueryKnowledgeBase(ctx context.Context, knowledgeBaseID int64,
 	if err != nil {
 		return nil, fmt.Errorf("failed to query vectors: %v", err)
 	}
+
+	log.Info(fmt.Sprintf("Query results: %v", results))
 
 	// Get chunk content from MinIO for each result
 	var queryResults []QueryResult

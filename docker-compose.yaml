@@ -86,6 +86,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       AMQP_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      WEAVIATE_URL: weaviate:8080
+      OLLAMA_URL: http://ollama:11434/api
     networks:
       - backend
     restart: unless-stopped
@@ -160,31 +162,31 @@ services:
       timeout: 5s
       retries: 5
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    networks:
-      - backend
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          memory: 2G
+#  elasticsearch:
+#    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+#    ports:
+#      - "9200:9200"
+#      - "9300:9300"
+#    environment:
+#      - discovery.type=single-node
+#      - xpack.security.enabled=false
+#      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+#    volumes:
+#      - elasticsearch_data:/usr/share/elasticsearch/data
+#    networks:
+#      - backend
+#    restart: unless-stopped
+#    healthcheck:
+#      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+#    deploy:
+#      resources:
+#        limits:
+#          memory: 4G
+#        reservations:
+#          memory: 2G
 
   unstructured_api:
     image: quay.io/unstructured-io/unstructured-api:latest
