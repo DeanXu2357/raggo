@@ -173,8 +173,6 @@ func (s *Service) AddResourceToKnowledgeBase(ctx context.Context, knowledgeBaseI
 				Properties: props,
 			}
 
-			log.Info(fmt.Sprintf("Adding vector to Weaviate: %v", vectorObj))
-
 			if err = s.weaviateSDK.AddVector(ctx, className, vectorObj); err != nil {
 				return fmt.Errorf("failed to store vector: %v", err)
 			}
@@ -188,24 +186,29 @@ func (s *Service) AddResourceToKnowledgeBase(ctx context.Context, knowledgeBaseI
 func (s *Service) ensureWeaviateSchema(ctx context.Context, className string) error {
 	properties := []*models.Property{
 		{
-			Name:     "knowledgeBaseId",
-			DataType: []string{"int"},
+			Name:            "knowledgeBaseId",
+			DataType:        []string{"number"},
+			IndexFilterable: &[]bool{true}[0],
 		},
 		{
-			Name:     "resourceId",
-			DataType: []string{"int"},
+			Name:            "resourceId",
+			DataType:        []string{"number"},
+			IndexFilterable: &[]bool{true}[0],
 		},
 		{
-			Name:     "chunkId",
-			DataType: []string{"int"},
+			Name:            "chunkId",
+			DataType:        []string{"number"},
+			IndexFilterable: &[]bool{true}[0],
 		},
 		{
-			Name:     "title",
-			DataType: []string{"string"},
+			Name:            "title",
+			DataType:        []string{"string"},
+			IndexFilterable: &[]bool{true}[0],
 		},
 		{
-			Name:     "description",
-			DataType: []string{"text"},
+			Name:            "description",
+			DataType:        []string{"text"},
+			IndexFilterable: &[]bool{true}[0],
 		},
 	}
 
@@ -283,7 +286,7 @@ func (s *Service) QueryKnowledgeBase(ctx context.Context, knowledgeBaseID int64,
 	className := getWeaviateClassName(knowledgeBaseID)
 	config := weaviate.QueryConfig{
 		Fields:    []string{"chunkId", "description"},
-		Limit:     5,
+		Limit:     20,
 		Certainty: 0.7, // Minimum similarity threshold
 	}
 

@@ -7,6 +7,8 @@ import (
 	"github.com/weaviate/weaviate-go-client/v4/weaviate"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
 	"github.com/weaviate/weaviate/entities/models"
+
+	"raggo/src/infrastructure/log"
 )
 
 // SDK encapsulates all Weaviate operations
@@ -85,6 +87,8 @@ func (w *SDK) AddVector(ctx context.Context, className string, object VectorObje
 		WithProperties(object.Properties).
 		WithVector(object.Vector).
 		Do(ctx)
+
+	log.Info("AddVector", "className", className, "vector", object.Vector, "properties", object.Properties)
 
 	if err != nil {
 		return fmt.Errorf("failed to add vector: %v", err)
