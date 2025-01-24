@@ -17,6 +17,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/tmc/langchaingo v0.1.12
+	github.com/valkey-io/valkey-go v1.0.53
 	github.com/weaviate/weaviate v1.28.2
 	github.com/weaviate/weaviate-go-client/v4 v4.16.1
 	go.uber.org/zap v1.27.0
@@ -105,7 +106,7 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect

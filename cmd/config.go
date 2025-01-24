@@ -6,6 +6,14 @@ func settingDefaultConfig() {
 	// Enable automatic environment variable binding
 	viper.AutomaticEnv()
 
+	// Map environment variables to Viper keys for RAG system
+	viper.BindEnv("rag.data_root", "RAG_DATA_ROOT")
+	viper.SetDefault("rag.data_root", "/data/rag-system")
+
+	// Map environment variables to Viper keys for Valkey
+	viper.BindEnv("valkey.url", "VALKEY_URL")
+	viper.SetDefault("valkey.url", "http://valkey:8080")
+
 	// Map environment variables to Viper keys for PostgreSQL
 	viper.BindEnv("postgres.host", "POSTGRES_HOST")
 	viper.BindEnv("postgres.port", "POSTGRES_PORT")

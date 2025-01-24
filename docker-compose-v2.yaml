@@ -1,0 +1,71 @@
+services:
+  raggo-v2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["go", "run", "main.go", "serveV2"]
+    environment:
+      - WEAVIATE_URL=weaviate:8080
+      - OLLAMA_URL=${OLLAMA_URL}
+      - VALKEY_URL=http://valkey:8080
+      - RAG_DATA_ROOT=/data/rag-system
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - SERVER_SHUTDOWN_TIMEOUT=${SERVER_SHUTDOWN_TIMEOUT:-5s}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    volumes:
+      - data:/data/rag-system
+    depends_on:
+      - weaviate
+      - valkey
+
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.2
+    environment:
+      - QUERY_DEFAULTS_LIMIT=25
+      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
+      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
+      - ENABLE_API_BASED_MODULES=true
+      - CLUSTER_HOSTNAME=node1
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+  valkey:
+    image: valkey/valkey:8.0.1
+    volumes:
+      - valkey_data:/data:Z
+
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - /usr/share/ollama/.ollama:/root/.ollama:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  web-v2:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web:/app
+    environment:
+      - VITE_API_URL=http://localhost:${SERVER_PORT:-8080}
+    depends_on:
+      - raggo-v2
+
+volumes:
+  weaviate_data:
+  valkey_data:
+  data:
+
+networks:
+  default:
+    driver: bridge

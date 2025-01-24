@@ -1,0 +1,561 @@
+openapi: 3.0.0
+info:
+  title: Local Knowledge Base API
+  version: '1.0.0'
+  description: API for managing local knowledge bases with RAG capabilities
+servers:
+  - url: /api/v1/
+    description: Base API path
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - code
+        - message
+
+    KnowledgeBase:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        embeddingModel:
+          type: string
+          default: nomic-embed-text
+        reasoningModel:
+          type: string
+          default: phi4
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+        path:
+          type: string
+        size:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - path
+        - size
+
+    ChatMessage:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        messageId:
+          type: string
+        content:
+          type: string
+        role:
+          type: string
+          enum: [user, assistant]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - sessionId
+        - messageId
+        - content
+        - role
+
+    SearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        filters:
+          type: object
+          properties:
+            resourceIds:
+              type: array
+              items:
+                type: string
+            timeRange:
+              type: object
+              properties:
+                start:
+                  type: string
+                  format: date-time
+                end:
+                  type: string
+                  format: date-time
+      required:
+        - query
+
+    SearchResult:
+      type: object
+      properties:
+        chunks:
+          type: array
+          items:
+            type: object
+            properties:
+              content:
+                type: string
+              summary:
+                type: string
+              score:
+                type: number
+              resourceId:
+                type: string
+              location:
+                type: object
+                properties:
+                  start:
+                    type: integer
+                  end:
+                    type: integer
+      required:
+        - chunks
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        components:
+          type: object
+          properties:
+            valkey:
+              type: string
+              enum: [up, down]
+            weaviate:
+              type: string
+              enum: [up, down]
+            ollama:
+              type: string
+              enum: [up, down]
+      required:
+        - status
+        - components
+
+    ModelStatus:
+      type: object
+      properties:
+        models:
+          type: object
+          properties:
+            phi4:
+              type: string
+              enum: [ready, loading, error]
+            nomic-embed-text:
+              type: string
+              enum: [ready, loading, error]
+      required:
+        - models
+
+paths:
+  /knowledge-bases:
+    get:
+      summary: List all knowledge bases
+      operationId: listKnowledgeBases
+      responses:
+        '200':
+          description: List of knowledge bases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KnowledgeBase'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a new knowledge base
+      operationId: createKnowledgeBase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                embeddingModel:
+                  type: string
+                reasoningModel:
+                  type: string
+              required:
+                - name
+      responses:
+        '201':
+          description: Knowledge base created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeBase'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /knowledge-bases/{id}:
+    delete:
+      summary: Delete a knowledge base
+      operationId: deleteKnowledgeBase
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Knowledge base deleted
+        '404':
+          description: Knowledge base not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /knowledge-bases/{id}/resources:
+    get:
+      summary: List resources in a knowledge base
+      operationId: listResources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Resource'
+        '404':
+          description: Knowledge base not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Add a resource to a knowledge base
+      operationId: addResource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        '201':
+          description: Resource added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '400':
+          description: Invalid request or resource limits exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Knowledge base not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /knowledge-bases/{id}/resources/{resourceId}:
+    delete:
+      summary: Remove a resource from a knowledge base
+      operationId: deleteResource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Resource deleted
+        '404':
+          description: Knowledge base or resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chat/completions:
+    post:
+      summary: Generate chat completion
+      operationId: generateChatCompletion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ChatMessage'
+                knowledgeBaseId:
+                  type: string
+              required:
+                - messages
+                - knowledgeBaseId
+      responses:
+        '200':
+          description: Chat completion generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chat/history:
+    get:
+      summary: Get chat history
+      operationId: getChatHistory
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chat history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /knowledge-bases/{id}/search:
+    post:
+      summary: Search context chunks in a knowledge base
+      operationId: searchContextChunks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Knowledge base not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /knowledge-bases/{id}/summary:
+    get:
+      summary: Get knowledge base summary
+      operationId: getKnowledgeBaseSummary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Knowledge base summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    type: string
+                  resourceCount:
+                    type: integer
+                  totalSize:
+                    type: integer
+                required:
+                  - summary
+                  - resourceCount
+                  - totalSize
+        '404':
+          description: Knowledge base not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Check system health status
+      operationId: checkHealth
+      responses:
+        '200':
+          description: System health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /models/status:
+    get:
+      summary: Check models status
+      operationId: checkModelsStatus
+      responses:
+        '200':
+          description: Models status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelStatus'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
